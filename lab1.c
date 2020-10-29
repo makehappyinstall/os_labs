@@ -55,7 +55,8 @@ void pause() {
     printf("Press enter to continue...");
     fflush(stdout);
 
-    int c = getchar();
+    int c;
+    while ((c = getchar()) != 0x0a);
     if (c != EOF) {
         return;
     }
@@ -94,7 +95,51 @@ void * fill_thread(const fill_thread_data_t * data) {
     return NULL;
 }
 
-void gen_and_write(unsigned char * memory, const char * filename, sem_t file_semaphores[]) {
+void gen_and_write(const char * filename, sem_t file_semaphores[]) {
+    pause();
+
+    printf("Allocating %dMiB of memory at the address %p...\n", A, (void *) B);
+    unsigned char * memory = (unsigned char *) C((void *) B, A * 1024 * 1024, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+
+    if (memory == (void *) -1) {
+        switch (errno) {
+            case EACCES:
+                fprintf(stderr, "EACCES\n");
+                break;
+
+            case EAGAIN:
+                fprintf(stderr, "EAGAIN\n");
+                break;
+
+            case EBADF:
+                fprintf(stderr, "EBADF\n");
+                break;
+
+            case EINVAL:
+                fprintf(stderr, "EINVAL\n");
+                break;
+
+            case ENFILE:
+                fprintf(stderr, "ENFILE\n");
+                break;
+
+            case ENODEV:
+                fprintf(stderr, "ENODEV\n");
+                break;
+
+            case ENOMEM:
+                fprintf(stderr, "ENOMEM\n");
+                break;
+
+            case EOVERFLOW:
+                fprintf(stderr, "EOVERFLOW\n");
+                break;
+        }
+
+        exit(-1);
+    }
+    pause();
+
     printf("Filling allocated at %p memory from /dev/urandom in %d fill_threads...\n", memory, D);
     FILE * urandom = fopen("/dev/urandom", "rb");
 
@@ -248,6 +293,10 @@ void gen_and_write(unsigned char * memory, const char * filename, sem_t file_sem
 
         sem_post(file_semaphores + i);
     }
+
+    printf("Unmap memory\n");
+    munmap(memory, A * 1024 * 1024);
+    pause();
 }
 
 void read_sum_work(void * work_data) {
@@ -304,50 +353,6 @@ void * read_main_thread(void * thread_data) {
 }
 
 int main() {
-    pause();
-
-    printf("Allocating %dMiB of memory at the address %p...\n", A, (void *) B);
-    unsigned char * memory = (unsigned char *) C((void *) B, A * 1024 * 1024, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-
-    if (memory == (void *) -1) {
-        switch (errno) {
-            case EACCES:
-                fprintf(stderr, "EACCES\n");
-                break;
-
-            case EAGAIN:
-                fprintf(stderr, "EAGAIN\n");
-                break;
-
-            case EBADF:
-                fprintf(stderr, "EBADF\n");
-                break;
-
-            case EINVAL:
-                fprintf(stderr, "EINVAL\n");
-                break;
-
-            case ENFILE:
-                fprintf(stderr, "ENFILE\n");
-                break;
-
-            case ENODEV:
-                fprintf(stderr, "ENODEV\n");
-                break;
-
-            case ENOMEM:
-                fprintf(stderr, "ENOMEM\n");
-                break;
-
-            case EOVERFLOW:
-                fprintf(stderr, "EOVERFLOW\n");
-                break;
-        }
-
-        exit(-1);
-    }
-    pause();
-
     srand(time(NULL));
     char filename[9] = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     for (unsigned int i = 0; i < 9; ++i) {
@@ -364,14 +369,14 @@ int main() {
         sem_init(file_semaphores + i, 0, 1);
     }
 
-    gen_and_write(memory, filename, file_semaphores);
+    gen_and_write(filename, file_semaphores);
 
     pthread_t read_thread;
     read_thread_data_t read_thread_data = { filename, file_semaphores };
     pthread_create(&read_thread, NULL, read_main_thread, &read_thread_data);
 
     while (1) {
-        gen_and_write(memory, filename, file_semaphores);
+        gen_and_write(filename, file_semaphores);
     }
 
     return 0;
