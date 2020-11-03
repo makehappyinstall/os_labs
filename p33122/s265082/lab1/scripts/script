@@ -1,0 +1,42 @@
+global opens, reads, writes, totals
+
+probe begin {
+    printf("starting probe\n")
+}
+probe syscall.openat {
+    if (pid() == target()) {
+        opens[execname()] <<< 1
+    }
+}
+probe syscall.pread.return {
+    count = retval
+    if ( count >= 0 && pid() == target()) {
+        reads[execname()] <<< count
+        totals[execname()] <<< count
+    }
+}
+
+probe syscall.pwrite.return {
+    count = retval
+    if (count >= 0 && pid() == target()) {
+        writes[execname()] <<< count
+        totals[execname()] <<< count
+    }
+}
+probe end {
+    printf("%8s %8s %8s %8s %8s %8s %8s %8s\n",
+    "name", "opens", "reads", "MB tot", "B avg",
+    "writes", "MB tot", "B avg")
+    # sort by total io
+    foreach (name in totals @sum- limit 20) {
+        printf("%8s %8d %8d %8d %8d %8d %8d %8d\n",
+        name,
+        @count(opens[name]),
+        @count(reads[name]),
+        (@count(reads[name]) ? @sum(reads[name])>>20 : 0 ),
+        (@count(reads[name]) ? @avg(reads[name]) : 0 ),
+        @count(writes[name]),
+        (@count(writes[name]) ? @sum(writes[name])>>20 : 0 ),
+        (@count(writes[name]) ? @avg(writes[name]) : 0 ))
+    }
+}
