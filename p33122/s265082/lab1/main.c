@@ -10,6 +10,7 @@
 #include <stdatomic.h>
 #include <linux/futex.h>
 #include <syscall.h>
+#include <string.h>
 
 #define print_thread_activity 0
 #define megabyte_size 1024*1024
@@ -20,9 +21,8 @@
 #define I 147
 #define observe_block 0
 #define print_sum 1
-#define infinity_loop 1
 
-int break_loop = 0;
+int infinity_loop = 1;
 
 typedef struct {
     int thread_number;
@@ -113,9 +113,6 @@ void *fill_with_random(void *thread_data) {
                 printf("После заполнения данными\n");
             }
         }
-        if (break_loop) {
-            break;
-        }
     } while (infinity_loop);
     if (print_thread_activity) {
         printf("[GENERATOR-%d] finished...\n", data->thread_number);
@@ -129,7 +126,7 @@ void *read_files(void *thread_data) {
         printf("[READER-%d] started...\n", data->thread_number);
     }
     do {
-        char filename[6] = "lab1_0";
+        char filename[7] = "lab1_0\0";
         filename[5] = '0' + data->file_number;
         int file_desc = -1;
         while (file_desc == -1) {
@@ -137,7 +134,7 @@ void *read_files(void *thread_data) {
                 printf("[READER-%d] wait for mutex %d...\n", data->thread_number, data->file_number);
             }
             fwait(&data->futexes[data->file_number]);
-            if (break_loop) {
+            if (!infinity_loop) {
                 fpost(&data->futexes[data->file_number]);
                 return NULL;
             }
@@ -176,9 +173,6 @@ void *read_files(void *thread_data) {
         }
 
         free(buffer);
-        if (break_loop) {
-            break;
-        }
     } while (infinity_loop);
     return NULL;
 }
@@ -198,9 +192,7 @@ void seq_write(void *ptr, int size, int n, int fd, const char* filepath, int fil
     for (int i = 0; i < blocks; ++i) {
         char* buf_ptr = (char *)ptr + blksize*i;
         // copy from memory to write buffer
-        for (int j = 0; j < blksize; j++) {
-            buff[j] = buf_ptr[j];
-        }
+		memcpy(wbuff, buf_ptr, blksize);
         if (pwrite(fd, wbuff, blksize, blksize*i + file_offset) < 0) {
             free(buff);
             printf("write error occurred\n");
@@ -218,7 +210,7 @@ void *write_to_files(void *thread_data) {
     }
     do {
         for (int i = 0; i < data->files; i++) {
-            char filename[6] = "lab1_0";
+            char filename[7] = "lab1_0\0";
             filename[5] = '0' + i;
             if (observe_block) {
                 printf("[WRITER] waiting for mutex %d...\n", i);
@@ -262,15 +254,12 @@ void *write_to_files(void *thread_data) {
                 printf("[WRITER] free mutex %d\n", i);
             }
         }
-        if (break_loop) {
-            break;
-        }
     } while (infinity_loop);
     return NULL;
 }
 
 int main() {
-    const char *devurandom_filename = "/dev/urandom";
+    const char *devurandom_filename = "/dev/urandom\0";
     FILE *devurandom_file = fopen(devurandom_filename, "r");
 
     printf("До аллокации (продолжить - [ENTER])");
@@ -337,13 +326,6 @@ int main() {
 
     // reader threads end
 
-    pthread_attr_t attr;
-    struct sched_param param;
-    pthread_attr_init (&attr);
-    pthread_attr_getschedparam (&attr, &param);
-    param.sched_priority += 0;
-    pthread_attr_setschedparam (&attr, &param);
-
     for (int i = 0; i < D; ++i) {
         pthread_create(&(generator_threads[i]), NULL, fill_with_random, &generator_data[i]);
     }
@@ -354,7 +336,7 @@ int main() {
 
     printf("Для останвки беск. цикла нажмите [ENTER]\n");
     getchar();
-    break_loop = 1;
+    infinity_loop = 0;
 
     for (int i = 0; i < I; i++) {
         pthread_join(reader_threads[i], NULL);
