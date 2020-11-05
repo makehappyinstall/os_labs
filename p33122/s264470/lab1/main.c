@@ -175,11 +175,11 @@ void fill_memory(int * memory_region){
     pthread_t * file_readers = (pthread_t*) malloc(NUM_THREADS_FILE * sizeof(pthread_t));
     for(int i=0; i<NUM_THREADS_FILE; i++){
         file_read_data[i].thread_number=i;
-        file_read_data[i].file_number = rand() % (FULL_FILES_COUNT+1);
+        file_read_data[i].file_number = i % FULL_FILES_COUNT;
         pthread_create(&(file_readers[i]), NULL, file_read_thread, &(file_read_data[i]));
     }
 
-    sleep(1); //чтобы следующая надпись вывелась после старта всех потоков
+    sleep(1); //ждем, чтобы следующая надпись вывелась после старта всех потоков
     printf("Press [Enter] to interrupt infinite loop\n");
     getchar();
     printf("Waiting for all threads finish\n");
