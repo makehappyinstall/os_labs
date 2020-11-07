@@ -1,5 +1,3 @@
-#define _XOPEN_SOURCE 500
-#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -23,7 +21,6 @@
 // #define K cv
 
 #define RANDOM "/dev/urandom"
-#define RANDOM_MODE "r"
 
 #define MB_TO_BYTE 1024*1024
 #define A_BYTE A*MB_TO_BYTE // 274726912
@@ -35,8 +32,7 @@
 #define BLOCK_SIZE 4096
 #define BLOCK_COUNT E_BYTE / BLOCK_SIZE
 
-#define FILENAME "file_%d.bin"
-#define FLAG_TO_CREATE_FILE O_RDWR | O_CREAT | O_FSYNC
+#define FILENAME "/tmp/file_%d.bin"
 
 typedef struct {
     size_t start;
@@ -65,14 +61,16 @@ size_t isWrite[COUNT_FILE] = {0};
 block MBlockRead[BLOCK_COUNT];
 block MBlockWrite[BLOCK_COUNT];
 
-int *files;
-int fp;
+FILE **files;
+FILE *pRandom;
 uint8_t *memory;
 
+genDataThread *genDataThreadData;
+writeFileData *writeFileDataThreads;
+readFromFileData *readFromFileDataThread;
+
 void generateRandomData();
-
 void writeToFile();
-
 void readFromFile();
 
 void shuffle(block *arr, int N) {
@@ -85,9 +83,7 @@ void shuffle(block *arr, int N) {
     }
 }
 
-int main() {
-    short firstRun = 1;
-
+void init() {
     for (int i = 0; i < BLOCK_COUNT; i++) {
         MBlockWrite[i].number = i;
         MBlockWrite[i].start = i * BLOCK_SIZE;
@@ -100,16 +96,50 @@ int main() {
 
     shuffle(MBlockRead, BLOCK_COUNT);
 
-    files = (int*)malloc(COUNT_FILE * sizeof(int));
+    files = (FILE**) malloc(COUNT_FILE * sizeof(FILE*));
+    checkMalloc(files, "File arrays")
+
     char filename[35];
     for (int i = 0; i < COUNT_FILE; i++) {
         snprintf(filename, 35, FILENAME, i);
-        files[i] = open(filename, FLAG_TO_CREATE_FILE);
+        files[i] = fopen(filename, "w+b");
+
+        if(files[i] == NULL) {
+            printf("Creat or write file '%s' is have error.\n", filename);
+            exit(1);
+        }
+
         pthread_cond_init(&(conds[i]), NULL);
         pthread_mutex_init(&(mutexs[i]), NULL);
     }
 
-    fp = open(RANDOM, O_RDONLY);
+    writeFileDataThreads = (writeFileData *) malloc(COUNT_FILE * sizeof(writeFileData));
+    checkMalloc(writeFileDataThreads, "ThreadData Write")
+    for (int i = 0; i < COUNT_FILE; ++i) {
+        writeFileDataThreads[i].number = i;
+    }
+
+    genDataThreadData = (genDataThread *) malloc(D * sizeof(genDataThread));
+    checkMalloc(genDataThreadData, "ThreadData Generate")
+    for (size_t i = 0; i < D - 1; i++) {
+        genDataThreadData[i].start = i * COUNT_BYTE_TO_WRITE;
+        genDataThreadData[i].stop = (i + 1) * COUNT_BYTE_TO_WRITE;
+    }
+
+    readFromFileDataThread = (readFromFileData *) malloc(I * sizeof(readFromFileData));
+    checkMalloc(readFromFileDataThread, "ThreadData Read")
+    for (int i = 0; i < I; ++i) {
+        readFromFileDataThread[i].number = i;
+        readFromFileDataThread[i].fileNumber = i % COUNT_FILE;
+    }
+
+    pRandom = fopen(RANDOM, "r");
+}
+
+int main() {
+    int firstRun = 1;
+
+    init();
 
     while (1) {
         memory = (uint8_t *) malloc(A_BYTE);
@@ -127,42 +157,33 @@ int main() {
 
         free(memory);
     }
-//    return 0;
+
+    return 0;
 }
 
 void *threadRandomGenerate(void *thread_data) {
-    genDataThread *data = (genDataThread *) thread_data;
-//    FILE *fp = fopen(RANDOM, RANDOM_MODE);
+    genDataThread *data = (genDataThread *) thread_data;;
+
     for (size_t i = data->start; i < data->stop; i++) {
         uint8_t random = 0;
-        read(fp, &random, 1);
-//        fread(&random, sizeof(uint8_t), 1, fp);
+        fread(&random, sizeof(uint8_t), 1, pRandom);
         memory[i] = random;
     }
-//    fclose(fp);
+
     return NULL;
 }
 
 void generateRandomData() {
     pthread_t *threads = (pthread_t *) malloc(D * sizeof(pthread_t));
-    genDataThread *threadData = (genDataThread *) malloc(D * sizeof(genDataThread));
-
     checkMalloc(threads, "Thread's Generate")
-    checkMalloc(threadData, "ThreadData Generate")
-
-    for (size_t i = 0; i < D - 1; i++) {
-        threadData[i].start = i * COUNT_BYTE_TO_WRITE;
-        threadData[i].stop = (i + 1) * COUNT_BYTE_TO_WRITE;
-    }
 
     for (int i = 0; i < D; i++)
-        pthread_create(&(threads[i]), NULL, threadRandomGenerate, &threadData[i]);
+        pthread_create(&(threads[i]), NULL, threadRandomGenerate, &genDataThreadData[i]);
 
     for (int i = 0; i < D; i++)
         pthread_join(threads[i], NULL);
 
     free(threads);
-//    free(threadData);
 }
 
 void *threadWriteToFile(void *thread_data) {
@@ -170,12 +191,7 @@ void *threadWriteToFile(void *thread_data) {
     int thread = data->number;
     pthread_mutex_t *mutex = &(mutexs[thread]);
     pthread_cond_t *cond = &conds[thread];
-    int toWrite = files[thread];
-
-    if (toWrite == -1) {
-        printf("Creat or write file is have error.\n");
-        exit(1);
-    }
+    FILE *toWrite2 = files[thread];
 
     int offset = thread * E_BYTE;
     for (int j = 0; j < BLOCK_COUNT; j++) {
@@ -185,14 +201,15 @@ void *threadWriteToFile(void *thread_data) {
         pthread_mutex_lock(mutex);
         isWrite[thread] = 1;
 
+        size_t curPos = ftell(toWrite2);
+        fseek(toWrite2, start, SEEK_CUR);
         for (size_t k = start; k < end; k += G) {
-            uint8_t arrToWrite[G];
-            for (int h = 0; h < G; ++h) {
-                arrToWrite[h] = memory[offset + k + h];
-            }
-            pwrite(toWrite, arrToWrite, G, k);
-            fsync(toWrite);
+            size_t offsetWriteArray = offset + k;
+            fwrite((memory+offsetWriteArray), sizeof(uint8_t), G, toWrite2);
         }
+        fseek(toWrite2, curPos, SEEK_SET);
+
+        fflush(toWrite2);
 
         isWrite[thread] = 0;
         pthread_cond_signal(cond);
@@ -205,33 +222,25 @@ void *threadWriteToFile(void *thread_data) {
 
 void writeToFile() {
     pthread_t *threads = (pthread_t *) malloc(COUNT_FILE * sizeof(pthread_t));
-    writeFileData *threadData = (writeFileData *) malloc(COUNT_FILE * sizeof(writeFileData));
-
     checkMalloc(threads, "Thread's Write")
-    checkMalloc(threadData, "ThreadData Write")
 
     for (int i = 0; i < COUNT_FILE; ++i) {
-        threadData[i].number = i;
-    }
-
-    for (int i = 0; i < COUNT_FILE; ++i) {
-        pthread_create(&(threads[i]), NULL, threadWriteToFile, &threadData[i]);
+        pthread_create(&(threads[i]), NULL, threadWriteToFile, &writeFileDataThreads[i]);
     }
 
     for (int i = 0; i < COUNT_FILE; i++)
         pthread_join(threads[i], NULL);
 
     free(threads);
-    free(threadData);
 }
 
-void *readFileThread(void *thread_data) {
+_Noreturn void *readFileThread(void *thread_data) {
     readFromFileData *data = (readFromFileData *) thread_data;
 
     int fileNumber = data->fileNumber;
     pthread_mutex_t *mutex = &(mutexs[fileNumber]);
     pthread_cond_t *cond = &(conds[fileNumber]);
-    int fp = files[fileNumber];
+    FILE *fp = files[fileNumber];
 
     while (1) {
         unsigned long long sum = 0;
@@ -244,35 +253,28 @@ void *readFileThread(void *thread_data) {
                 pthread_cond_wait(cond, mutex);
             }
 
-            lseek(fp, start, SEEK_SET);
+            size_t curPos = ftell(fp);
+            fseek(fp, start, SEEK_SET);
             for (size_t j = start; j < end; j++) {
                 uint8_t numb;
-                read(fp, &numb, 1);
+                fread(&numb, sizeof(uint8_t), 1, fp);
                 sum += numb;
             }
-            lseek(fp, 0, SEEK_SET);
+            fseek(fp, curPos, SEEK_SET);
 
             pthread_mutex_unlock(mutex);
         }
         printf("Thread %d complete in file %d sum = %llu\n", data->number, fileNumber, sum);
 
     }
-    return NULL;
+
 }
 
 void readFromFile() {
     pthread_t *threads = (pthread_t *) malloc(I * sizeof(pthread_t));
-    readFromFileData *threadData = (readFromFileData *) malloc(I * sizeof(readFromFileData));
-
     checkMalloc(threads, "Thread's Read")
-    checkMalloc(threadData, "ThreadData Read")
 
     for (int i = 0; i < I; ++i) {
-        threadData[i].number = i;
-        threadData[i].fileNumber = i % COUNT_FILE;
-    }
-
-    for (int i = 0; i < I; ++i) {
-        pthread_create(&(threads[i]), NULL, readFileThread, &threadData[i]);
+        pthread_create(&(threads[i]), NULL, readFileThread, &readFromFileDataThread[i]);
     }
 }
