@@ -1,36 +1,46 @@
 probe begin {
 	qnames["ioblock"]++
 	qsq_start("ioblock")
+	qnames["local_ioblock"]++
+	qsq_start("local_ioblock")
 }
 
 probe ioblock.request {
+	qs_wait("ioblock")
+	qs_run("ioblock")
 	if (execname() == "lab1.out") {
-		qs_wait("ioblock")
-		qs_run("ioblock")
+		qs_wait("local_ioblock")
+		qs_run("local_ioblock")
 	}
 }
 
 probe ioblock.end {
+	qs_done("ioblock")
 	if (execname() == "lab1.out") {
-		qs_done("ioblock")
+		qs_done("local_ioblock")
 	}
 }
 
 probe begin {
 	qnames["cpu"]++
 	qsq_start("cpu")
+	qnames["local_cpu"]++
+	qsq_start("local_cpu")
 }
 
 probe scheduler.cpu_on {
+	qs_wait("cpu")
+	qs_run("cpu")
 	if (!idle && execname() == "lab1.out") {
-		qs_wait("cpu")
-		qs_run("cpu")
+		qs_wait("local_cpu")
+		qs_run("local_cpu")
 	}
 }
 
 probe scheduler.cpu_off {
+	qs_done("cpu")
 	if (!idle && execname() == "lab1.out")
-		qs_done("cpu")
+		qs_done("local_cpu")
 }
 
 global qnames
