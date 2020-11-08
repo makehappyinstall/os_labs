@@ -129,6 +129,24 @@ int main() {
   for (size_t i = 0; i < READ_THREAD_NUMBER; ++i)
     file_futexes[i] = 1;
 
+  puts("Before allocation");
+  getc(stdin);
+  allocated_memory = malloc(MEMORY_SIZE);
+  puts("After allocation");
+  getc(stdin);
+  for (size_t i = 0; i < URANDOM_THREAD_NUMBER; ++i) {
+    generate_thread_info[i].number = i;
+    pthread_create(&generate_thread_info[i].id, NULL, fill_memory,
+		   &generate_thread_info[i]);
+  }
+  for (size_t i = 0; i < URANDOM_THREAD_NUMBER; ++i) {
+    pthread_join(generate_thread_info[i].id, NULL);
+  }
+  puts("After filling");
+  getc(stdin);
+  free(allocated_memory);
+  puts("After deallocation");
+  getc(stdin);
   allocated_memory = malloc(MEMORY_SIZE);
 
   for (;;) {

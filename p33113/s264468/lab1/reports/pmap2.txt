@@ -1,0 +1,34 @@
+15182:   ./lab1.out
+Address           Kbytes     RSS   Dirty Mode  Mapping
+000055d09acfe000       4       4       4 r---- lab1.out
+000055d09acff000       4       4       4 r-x-- lab1.out
+000055d09ad00000       4       4       4 r---- lab1.out
+000055d09ad01000       4       4       4 r---- lab1.out
+000055d09ad02000       4       4       4 rw--- lab1.out
+000055d09ba22000     132       4       4 rw---   [ anon ]
+00007f5586792000  182288      12      12 rw---   [ anon ]
+00007f5591996000     148     144       0 r---- libc-2.31.so
+00007f55919bb000    1504     840       0 r-x-- libc-2.31.so
+00007f5591b33000     296     124       0 r---- libc-2.31.so
+00007f5591b7d000       4       0       0 ----- libc-2.31.so
+00007f5591b7e000      12      12      12 r---- libc-2.31.so
+00007f5591b81000      12      12      12 rw--- libc-2.31.so
+00007f5591b84000      16      16      16 rw---   [ anon ]
+00007f5591b88000      28      28       0 r---- libpthread-2.31.so
+00007f5591b8f000      68      68       0 r-x-- libpthread-2.31.so
+00007f5591ba0000      20       0       0 r---- libpthread-2.31.so
+00007f5591ba5000       4       4       4 r---- libpthread-2.31.so
+00007f5591ba6000       4       4       4 rw--- libpthread-2.31.so
+00007f5591ba7000      24      12      12 rw---   [ anon ]
+00007f5591bbc000       4       4       0 r---- ld-2.31.so
+00007f5591bbd000     140     140       0 r-x-- ld-2.31.so
+00007f5591be0000      32      32       0 r---- ld-2.31.so
+00007f5591be9000       4       4       4 r---- ld-2.31.so
+00007f5591bea000       4       4       4 rw--- ld-2.31.so
+00007f5591beb000       4       4       4 rw---   [ anon ]
+00007ffd7ec07000     132      12      12 rw---   [ stack ]
+00007ffd7ecd1000      12       0       0 r----   [ anon ]
+00007ffd7ecd4000       4       4       0 r-x--   [ anon ]
+ffffffffff600000       4       0       0 --x--   [ anon ]
+---------------- ------- ------- ------- 
+total kB          184920    1504     120

@@ -1,46 +1,39 @@
-# global opens, reads, writes
-# 
-# probe begin {
-# 	printf("starting probe\n")
-# }
-# 
-# probe syscall.open {
-# 	if (execname() == "lab1.out")
-# 		opens <<< 1
-# }
-# 
-# probe syscall.read.return {
-# 	cnt = retval
-# 	if (cnt && execname() == "lab1.out")
-# 		reads <<< cnt
-# }
-# 
-# probe syscall.write.return {
-# 	cnt = retval
-# 	if (cnt && execname() == "lab1.out")
-# 		writes <<< cnt
-# }
-# 
-# probe timer.ms(100) {
-# 	printf("%d %d %d %d %d\n", @count(opens),
-# 		@count(reads), @count(reads) ? @sum(reads) : 0,
-# 		@count(writes), @count(writes) ? @sum(writes) : 0)
-# 	delete opens
-# 	delete reads
-# 	delete writes
-# }
+probe begin {
+	qnames["ioblock"]++
+	qsq_start("ioblock")
+}
 
-probe begin { qnames["ioblock"]++; qsq_start("ioblock") }
-probe ioblock.request { qs_wait("ioblock") qs_run("ioblock") }
-probe ioblock.end { qs_done("ioblock") }
+probe ioblock.request {
+	if (execname() == "lab1.out") {
+		qs_wait("ioblock")
+		qs_run("ioblock")
+	}
+}
 
-probe begin { qnames["cpu"]++; qsq_start("cpu") }
-probe scheduler.cpu_on { if (!idle) { qs_wait("cpu") qs_run("cpu") }}
-probe scheduler.cpu_off { if (!idle) qs_done("cpu") }
+probe ioblock.end {
+	if (execname() == "lab1.out") {
+		qs_done("ioblock")
+	}
+}
 
-global N
-probe begin { N = 50 }
-global qnames, util, histidx
+probe begin {
+	qnames["cpu"]++
+	qsq_start("cpu")
+}
+
+probe scheduler.cpu_on {
+	if (!idle && execname() == "lab1.out") {
+		qs_wait("cpu")
+		qs_run("cpu")
+	}
+}
+
+probe scheduler.cpu_off {
+	if (!idle && execname() == "lab1.out")
+		qs_done("cpu")
+}
+
+global qnames
 
 function qsq_util_reset(q) {
 	u = qsq_utilization(q, 100)
@@ -49,27 +42,10 @@ function qsq_util_reset(q) {
 }
 
 probe timer.ms(100) {
-	histidx = (histidx + 1) % N
 	printf("{ ")
 	foreach (q in qnames) {
 		printf("'%s': %d, ", q, qsq_util_reset(q))
-		# printf("%d ", qsq_util_reset(q))
-		# util[histidx, q] = qsq_util_reset(q)
 	}
-	printf("} \n")
+	printf("},\n")
 }
 
-# probe timer.ms(1000) {
-# 	printf("set yrange [0:100]\n")
-# 	printf("plot ")
-# 	foreach (q in qnames+) {
-# 		printf("'-' title \"%s\" with lines", q)
-# 	}
-# 	printf("\n")
-# 	foreach (q in qnames+) {
-# 		for (i = (histidx + 1) % N; i != histidx; i = (i + 1) % N)
-# 			printf("%d\n", util[i, q])
-# 		printf("e\n")
-# 	}
-# 	printf("pause 1\n")
-# }
