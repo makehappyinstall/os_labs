@@ -1,0 +1,67 @@
+global time_start
+global clone
+global fstat
+global futex
+global mmap
+global mprotect
+global munmap
+global rt_sigprocmask
+global write
+
+probe begin {
+	time_start = gettimeofday_s()
+	clone = 0
+	fstat = 0
+	futex = 0
+	mmap = 0
+	mprotect = 0
+	munmap = 0
+	rt_sigprocmask = 0
+	write = 0
+}
+
+probe syscall.clone {
+	if (execname() == "lab1.out")
+		clone += 1
+}
+
+probe syscall.fstat {
+	if (execname() == "lab1.out")
+		fstat += 1
+}
+
+probe syscall.futex {
+	if (execname() == "lab1.out")
+		futex += 1
+}
+
+probe syscall.mprotect {
+	if (execname() == "lab1.out")
+		mprotect += 1
+}
+
+probe syscall.munmap {
+	if (execname() == "lab1.out")
+		munmap += 1
+}
+
+probe syscall.rt_sigprocmask {
+	if (execname() == "lab1.out")
+		rt_sigprocmask += 1
+}
+
+probe syscall.write {
+	if (execname() == "lab1.out")
+		write += 1
+}
+
+probe timer.ms(100) {
+	printf("%d %d %d %d %d %d %d\n", clone, fstat, futex, mprotect, munmap, rt_sigprocmask, write)
+	clone = 0
+	fstat = 0
+	futex = 0
+	mprotect = 0
+	munmap = 0
+	rt_sigprocmask = 0
+	write = 0
+}
