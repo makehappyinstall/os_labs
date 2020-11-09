@@ -1,0 +1,1 @@
+Изначальный репозиторий [здесь](https://github.com/rbetik12/OS-memory-allocator)
