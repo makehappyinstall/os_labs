@@ -23,7 +23,6 @@ void* work_with_memory(){
     if (memory_pointer == MAP_FAILED){
         printf("Mapping Failed\n");
     }
-    char flag;
     printf("Memory after allocation, Make a memory check Press Enter to continue.\n");
     getchar();
     write_to_memory(memory_pointer);
@@ -43,7 +42,7 @@ void write_to_memory(void* memory_pointer) {
     pthread_t thread_id[THREADRANDOM];
     struct write_to_memory_piece piece[THREADRANDOM];
     for (uint8_t i = 0; i < THREADRANDOM; i++){
-        piece[i].memory_pointer = memory_pointer + i * block;
+        piece[i].memory_pointer = (uint8_t*)memory_pointer + i * block;
         piece[i].size = block;
 
         pthread_create(thread_id + i, NULL, write_thread, piece + i);
@@ -95,7 +94,7 @@ void work_with_file(void* memory_pointer){
 
 void write_from_memory_to_file(FILE *file, void* memory_pointer){
     for (uint64_t counter = 0; counter < FILESSIZE; counter += IOBLOCK){
-        fwrite(memory_pointer + counter, sizeof(uint8_t), IOBLOCK, file);
+        fwrite((uint8_t*)memory_pointer + counter, sizeof(uint8_t), IOBLOCK, file);
     }
     fclose(file);
 }
@@ -121,7 +120,6 @@ void max_in_file_reader_thread(FILE *file){
     uint64_t *results_ptr;
     pthread_t thread_id[THREADREAD];
     uint64_t size = (FILESSIZE) / THREADREAD;
-    uint64_t residue = (FILESSIZE) % THREADREAD;
     uint64_t offset = 0;
     for (uint64_t i = 0; i < THREADREAD - 1; i++){
         struct agr_state *state = malloc(sizeof(struct agr_state));
@@ -136,7 +134,7 @@ void max_in_file_reader_thread(FILE *file){
     for (uint8_t i = 0; i < THREADREAD - 1; i++){
             pthread_join(thread_id[i], results + i);
         }
-    results_ptr = results;
+    results_ptr = (uint64_t *) results;
     for (uint8_t i = 0; i < THREADREAD; i++){
         if (max < (int8_t) results_ptr[i]) max = results_ptr[i];
     }
@@ -145,7 +143,7 @@ void max_in_file_reader_thread(FILE *file){
 
 void * aggreggate_state(void* arg) {
     struct agr_state * state = arg;
-    int8_t max = INT8_MIN;
+    int64_t max = INT64_MIN;
     int8_t point = 0;
     int locked_file = fileno(state->fd);
     //block io
