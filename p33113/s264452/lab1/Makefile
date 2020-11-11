@@ -2,6 +2,9 @@
 run: main.o
 	./main.o
 
+run-silent: main.o
+	./main.o 2>/dev/null
+
 all:
 	make main.o
 
