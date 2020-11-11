@@ -80,10 +80,27 @@ void *write_file(void *param) {
 
   int fd = open(FILENAMES[info->number], O_WRONLY | O_CREAT | O_TRUNC,
                 S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-  for (pos = 0; pos + WRITE_BLOCK_SIZE <= FILE_SIZE; pos += WRITE_BLOCK_SIZE)
-    write(fd, mem_start + pos, WRITE_BLOCK_SIZE);
-  if (pos != FILE_SIZE)
-    write(fd, mem_start + pos, FILE_SIZE - pos);
+  for (pos = 0; pos + WRITE_BLOCK_SIZE <= FILE_SIZE; pos += WRITE_BLOCK_SIZE) {
+    ssize_t written = 0;
+    while (written < WRITE_BLOCK_SIZE) {
+      ssize_t written_last =
+          write(fd, mem_start + pos + written, WRITE_BLOCK_SIZE - written);
+      if (written_last < 0)
+        goto close_file;
+      written += written_last;
+    }
+  }
+  if (pos != FILE_SIZE) {
+    ssize_t written = 0;
+    while (written < WRITE_BLOCK_SIZE) {
+      ssize_t written_last =
+          write(fd, mem_start + pos + written, FILE_SIZE - pos - written);
+      if (written_last < 0)
+        goto close_file;
+      written += written_last;
+    }
+  }
+close_file:
   close(fd);
 
   for (pos = FILE_START_SHIFT * info->number / URANDOM_THREAD_MEMORY_SIZE;
@@ -107,7 +124,14 @@ void *read_file(void *param) {
                        : FILE_SIZE - my_pos;
   int fd = open(FILENAMES[my_file], O_RDONLY);
   void *buffer = malloc(my_size);
-  read(fd, buffer, my_size);
+  ssize_t written = 0;
+  if (!buffer)
+    goto close_file;
+  while (written < my_size) {
+    written = read(fd, buffer, my_size);
+    if (written < 0)
+      goto free_buffer;
+  }
 
   int *iptr = buffer;
   long long result = 0;
@@ -115,7 +139,9 @@ void *read_file(void *param) {
     result += (long long)iptr[i];
   info->result = result;
 
+free_buffer:
   free(buffer);
+close_file:
   close(fd);
   futex_wake(&file_futexes[my_file]);
   return NULL;
@@ -137,7 +163,7 @@ int main() {
   for (size_t i = 0; i < URANDOM_THREAD_NUMBER; ++i) {
     generate_thread_info[i].number = i;
     pthread_create(&generate_thread_info[i].id, NULL, fill_memory,
-		   &generate_thread_info[i]);
+                   &generate_thread_info[i]);
   }
   for (size_t i = 0; i < URANDOM_THREAD_NUMBER; ++i) {
     pthread_join(generate_thread_info[i].id, NULL);
