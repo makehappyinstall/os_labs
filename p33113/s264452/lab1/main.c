@@ -13,6 +13,7 @@
 #include <limits.h>
 #include <inttypes.h>
 #include <sched.h>
+#include <stdbool.h>
 
 #define ALLOC_ADDR      0xB44603B3
 #define THREADS_AMOUNT  3
@@ -47,7 +48,13 @@ systemFree() {
     fprintf(stderr, "\n");
 }
 
-// fills memory with mmap function
+/* 
+ * Fills memory with mmap function.
+ *
+ * addr - pointer to fill address (may not equal to return pointer)
+ * size - allocation size
+ * logEnabled - log memory allocations (before and after allocation)
+ */
 void *
 fmem(void *addr, size_t size, int logEnabled)
 {
@@ -109,11 +116,11 @@ int futex(int* uaddr, int futex_op, int val) {
       return syscall(SYS_futex, uaddr, futex_op, val, NULL, NULL, 0);
 }
 
-void wait_on_futex_value(int* futex_addr, int val) {
+void waitOnFutexValue(int* futex_addr, int val) {
     futex(futex_addr, FUTEX_WAIT, val);
 }
 
-void wake_futex_blocking(int* futex_addr, int val) {
+void wakeFutexBlocking(int* futex_addr, int val) {
     while (1) {
         int futex_rc = futex(futex_addr, FUTEX_WAKE, val);
         if (futex_rc == -1) {
@@ -125,10 +132,12 @@ void wake_futex_blocking(int* futex_addr, int val) {
     }
 }
 
-
+/*
+ * Dump memory to provided file descriptor
+ */
 void
-dumpMem(int fd, void * addr, int size, int * futex) {
-    wait_on_futex_value(futex, 0);
+dumpMem(const int fd, const void * addr, const int size, int * futex) {
+    waitOnFutexValue(futex, 0);
     *futex = 0;
     fprintf(stderr, "Dump memory to %d\t from %p \t[size=%.2f MB]\n", fd, addr, size / (1024.0 * 1024.0));
 
@@ -185,9 +194,9 @@ dumpMemThreadFunc(void * arg) {
 }
 
 int
-aggregateFile(struct memoryDumpMap * args) {
+aggregateFile(const struct memoryDumpMap * args) {
     int * futex = args->futex;
-    wait_on_futex_value(futex, 0);
+    waitOnFutexValue(futex, 0);
     *futex = 0;
     uint64_t sum = 0;
     
@@ -237,20 +246,22 @@ readFileFunc(void * arg) {
 
 int main()
 {
-    int fillMemSize = FILL_MEM_SIZE * 1024 * 1024;
+    const int fillMemSize = FILL_MEM_SIZE * 1024 * 1024;
     fprintf(stderr, "\nAllocating memory with mmap function");
-    void * mmapAddr = fmem((void *)ALLOC_ADDR, fillMemSize, 1);
+    void * mmapAddr = fmem((void *)ALLOC_ADDR, fillMemSize, true);
 
     munmap(mmapAddr, fillMemSize);
 
+    // just for in-app monitor
+    // of course, we can make an additional monitor outside
     fprintf(stderr, "\nAfter deallocation");
     systemFree();
 
     
-    const void * memoryAddr = fmem((void *) ALLOC_ADDR, FILL_MEM_SIZE, 0);
+    const void * memoryAddr = fmem((void *) ALLOC_ADDR, FILL_MEM_SIZE, false);
     
-    size_t dumpMemSize = DUMP_FILE_SIZE * 1024 * 1024;
-    int filesAmount = fillMemSize / dumpMemSize + (fillMemSize % dumpMemSize > 0 ? 1 : 0);
+    const size_t dumpMemSize = DUMP_FILE_SIZE * 1024 * 1024;
+    const int filesAmount = fillMemSize / dumpMemSize + (fillMemSize % dumpMemSize > 0 ? 1 : 0);
 
     int files[filesAmount];
 
@@ -273,7 +284,7 @@ int main()
         args->dumpMap[i]->addr = (uint8_t*) memoryAddr + i * (dumpMemSize / 8);
         args->dumpMap[i]->size = dumpMemSize;
 
-        int shm_id = shmget(IPC_PRIVATE, 4096, IPC_CREAT | 0666);
+        const int shm_id = shmget(IPC_PRIVATE, 4096, IPC_CREAT | 0666);
         args->dumpMap[i]->futex = shmat(shm_id, NULL, 0);
     }
    
@@ -294,7 +305,7 @@ int main()
     struct sched_param * memSP = malloc(sizeof(struct sched_param));
 
     pthread_attr_setschedparam(memAttr, memSP);
-    for (int i = 0; i < COUNTERS_THREAD_AMOUNT; i++) {
+    for (size_t i = 0; i < COUNTERS_THREAD_AMOUNT; i++) {
         counters[i] = pthread_create(&counters[i], NULL, readFileFunc, args); 
     }
 
@@ -306,9 +317,9 @@ int main()
 
 
     fprintf(stderr, "Unlocking all blocks...\n");
-    for (int i = 0; i < filesAmount; i++) {
+    for (size_t i = 0; i < filesAmount; i++) {
         int * futex = args->dumpMap[i]->futex;
-        wake_futex_blocking(futex, 1);
+        wakeFutexBlocking(futex, 1);
     }
 
     int err = pthread_join(memDumpTP, NULL);
@@ -316,7 +327,7 @@ int main()
         fprintf(stderr, "Error pthred_join. Status: %d\n", err);
     }
 
-    for (int i = 0; i < COUNTERS_THREAD_AMOUNT; i++) {
+    for (size_t i = 0; i < COUNTERS_THREAD_AMOUNT; i++) {
         pthread_join(counters[i], NULL);
     }
 
