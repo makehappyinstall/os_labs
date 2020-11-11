@@ -16,24 +16,23 @@
 #define J max
 #define K flock
 
-void* work_with_memory(){
-    void* memory_pointer = (void*) MEMORYSTART;
-    memory_pointer = mmap((void*) memory_pointer, MEMORYSIZE,
+//Теперь все замеры памяти делаются брейкпоинтами, 
+//чтобы избежать длительных остановок, при ожидании клавиатуры
+void* memory_videlyator(){
+    void* memory_pointer;
+    memory_pointer = mmap((void*) MEMORYSTART, MEMORYSIZE,
      PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
     if (memory_pointer == MAP_FAILED){
         printf("Mapping Failed\n");
+        return (void*) 1;
     }
-    printf("Memory after allocation, Make a memory check Press Enter to continue.\n");
-    getchar();
-    write_to_memory(memory_pointer);
-    printf("Memory filled with random values. Make a memory check and Press Enter.\n");
-    getchar();
-
-    munmap((void*) MEMORYSTART, MEMORYSIZE);
-    printf("End of work with memory. Make a memory check and Press Enter.\n");
-    getchar();
     return memory_pointer;
-    // work_with_file(memory_pointer);
+}
+
+void work_with_memory(void* memory_pointer){
+    write_to_memory(memory_pointer);
+    munmap((void*) MEMORYSTART, MEMORYSIZE);
+    
 }
 
 void write_to_memory(void* memory_pointer) {
@@ -79,17 +78,12 @@ void *write_thread(void *arg){
 задания последовательность записи/чтения блоковпоследовательный
 */
 void work_with_file(void* memory_pointer){
-    printf("Start of work with files. Press Enter to continue\n");
-    getchar();
     uint64_t files_count = ((MEMORYSIZE) / (FILESSIZE)) + 1;
     for (uint64_t i = 0; i < files_count; i++){
-        char* filename = make_filename(i);
+        const char* filename = make_filename(i);
         FILE *f = fopen(filename, "wb");
         write_from_memory_to_file(f, memory_pointer);
     }
-    printf("End of work with files. Press Enter to continue\n");
-    getchar();
-
 }
 
 void write_from_memory_to_file(FILE *file, void* memory_pointer){
@@ -108,7 +102,7 @@ void work_with_threads(){
     getchar();
     uint64_t files_count = ((MEMORYSIZE) / (FILESSIZE)) + 1;
     for (uint64_t i = 0; i < files_count; i++){
-        char* filename = make_filename(i);
+        const char* filename = make_filename(i);
         FILE *f = fopen(filename, "rb");
         max_in_file_reader_thread(f);
     }
@@ -149,14 +143,23 @@ void * aggreggate_state(void* arg) {
     //block io
     flock(locked_file, LOCK_EX|LOCK_NB);
     fseek(state->fd, state->off, SEEK_SET);
-    for (uint64_t i = 0; i < state->size; ++i) {
-        point = fgetc(state->fd);
-        if (max < point) {
-            max = point;
-        }
+
+    long fSize = ftell(state->fd);
+    char * buffer = (char*) malloc(sizeof(char) * fSize);
+    if (buffer == NULL) {
+        fputs("Memory Error\n", stderr);
+        exit(1);
     }
     //unblock io
     flock(locked_file,LOCK_UN);
+    
+    for (uint64_t i = 0; i < state->size; ++i) {
+        point = *buffer;
+        if (max < point) {
+            max = point;
+        }
+        *buffer += (uint8_t) 1;
+    }
     return (void*)max;
 }
 /*
@@ -165,18 +168,24 @@ void * aggreggate_state(void* arg) {
 */
 
 int main(int argc, char *argv[]){
-    printf("Memory before allocation. Make a memory check Press Enter to continue.\n");
-    getchar();
+    char flag;
     void* pointer;
-    pointer = work_with_memory();
-    // while (1){
+    pointer = memory_videlyator();
+    while (1){
+        work_with_memory(pointer); 
         work_with_file(pointer);
-    // }
+        puts("Do u want end of memory work??????\n");
+        puts("1:yes");
+        scanf("%c", &flag);
+        if (flag == '1'){
+            break;
+        }
+    }
     work_with_threads();
     return 0;
 }
 
-char* make_filename(int name){
+const char* make_filename(int name){
     switch (name) {
     case 0:
         return "./first.txt";

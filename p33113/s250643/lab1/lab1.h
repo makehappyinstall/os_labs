@@ -1,12 +1,13 @@
 #ifndef LAB1_H
-#define LAB2_H
+#define LAB1_H
 #include <stdint.h>
 void write_to_memory(void* memory_pointer);
-void* work_with_memory();
+void* memory_videlyator();
+void work_with_memory();
 void *write_thread(void *arg);
 void work_with_file(void* memory_pointer);
 void write_from_memory_to_file(FILE *file, void* memory_pointer);
-char* make_filename(int name);
+const char* make_filename(int name);
 void work_with_threads();
 void max_in_file_reader_thread(FILE *file);
 void *aggreggate_state(void* arg);
