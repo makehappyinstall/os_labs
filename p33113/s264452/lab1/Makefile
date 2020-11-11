@@ -1,3 +1,6 @@
+CC=gcc
+CC_ARGS=-Wall -Wpedantic -Werror
+
 
 run: main.o
 	./main.o
@@ -9,7 +12,7 @@ all:
 	make main.o
 
 main.o : main.c
-	gcc -Wall -Wpedantic -Werror -o main.o main.c -pthread
+	$(CC) $(CC_ARGS) -Wall -Wpedantic -Werror -o main.o main.c -pthread -lm
 
 
 

@@ -259,9 +259,10 @@ int main()
     args->filesAmount = filesAmount;
 
     for (size_t i = 0; i < filesAmount; i++) {
-        
-        char filename[7];
-        sprintf(filename, "dump.%ld", i);
+        const size_t filenameSize = 6 + log10(filesAmount) + 1;
+        char filename[filenameSize];
+        snprintf(filename, filenameSize, "dump.%ld", i);
+
         files[i] = open(filename, O_RDWR | O_CREAT, (mode_t) 0600);
 
         if (files[i] == -1) {
