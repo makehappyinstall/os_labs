@@ -7,7 +7,6 @@
 #include <string.h>
 #include <pthread.h>
 #include <sys/types.h>
-#include <sys/stat.h>
 #include <time.h>
 
 
@@ -16,17 +15,25 @@
 
 // A=276;B=0x28B070E0;C=mmap;D=74;E=47;F=nocache;G=36;H=random;I=139;J=max;K=sem
 
-extern size_t totalBytesRead;
-
+char ch;
 unsigned char max;
+unsigned char* memoryRegion;
+int bytes;
+int randomFD;
+int outputFD;
+int i;
+int filesAmount;
+int* fileDescriptors;
+struct timespec start;
+struct timespec finish;
+double elapsed;
+pthread_t writeToFilesThreadId;
 
-int main() {
-    InitSem();
-    int bytes;
+void InitializeMemory() {
     bytes = ALLOCATE_MBYTES * pow(10, 6);
 
-    int outputFD = open("output", O_RDWR | O_CREAT | O_TRUNC, (mode_t) 0600);
-    int randomFD = open("/dev/urandom", O_RDONLY);
+    outputFD = open("output", O_RDWR | O_CREAT | O_TRUNC, (mode_t) 0600);
+    randomFD = open("/dev/urandom", O_RDONLY);
 
     if (randomFD == -1) {
         perror("Can't read /dev/urandom\n");
@@ -55,7 +62,7 @@ int main() {
     printf("After input char program will allocate memory\n");
     getchar();
 
-    unsigned char* memoryRegion = mmap(
+    memoryRegion = mmap(
             (void*) ADDRESS,
             bytes,
             PROT_READ | PROT_WRITE,
@@ -67,12 +74,13 @@ int main() {
         perror("Error mapping a file");
         exit(EXIT_FAILURE);
     }
-    char ch;
+
     while ((ch = getchar()) != '\n' && ch != EOF);
     printf("After input char program will continue writing data to memory\n");
     getchar();
+}
 
-//-------------------------------------WRITES RANDOM DATA TO MEMORY-------------------------------------
+void WriteRandomDataToMemory() {
     const int memoryRemainder = bytes / THREADS_AMOUNT / sizeof(*memoryRegion);
     const int memoryQuotient = bytes % THREADS_AMOUNT / sizeof(*memoryRegion);
 #ifdef LOG
@@ -82,9 +90,8 @@ int main() {
     pthread_t writeToMemoryThreads[THREADS_AMOUNT];
     struct WriteToMemoryArgs* args;
     int thread = 0;
-    int i;
 
-    struct timespec start;
+
 
     clock_gettime(CLOCK_MONOTONIC, &start);
 
@@ -105,7 +112,6 @@ int main() {
         thread += 1;
     }
 
-
     if (memoryQuotient != 0) {
         args = malloc(sizeof(*args));
         args->memoryRegion = memoryRegion;
@@ -120,9 +126,6 @@ int main() {
         pthread_join(writeToMemoryThreads[i], NULL);
     }
 
-    struct timespec finish;
-    double elapsed;
-
     clock_gettime(CLOCK_MONOTONIC, &finish);
 
     elapsed = (finish.tv_sec - start.tv_sec);
@@ -133,20 +136,17 @@ int main() {
     while ((ch = getchar()) != '\n' && ch != EOF);
     printf("After input char program will continue writing data to file\n");
     getchar();
-//-------------------------------------WRITES RANDOM DATA TO FILES-------------------------------------
+}
 
-    int filesAmount = (ALLOCATE_MBYTES / OUTPUT_FILE_SIZE) + 1;
-//#ifdef LOG
-    printf("Files amount: %d\n", filesAmount);
-//#endif
-    int* fileDescriptors = malloc(sizeof(int) * filesAmount);
+void WriteRandomDataToFiles() {
+    filesAmount = (ALLOCATE_MBYTES / OUTPUT_FILE_SIZE) + 1;
+    fileDescriptors = malloc(sizeof(int) * filesAmount);
     CleanFiles(filesAmount);
     OpenFiles(filesAmount, fileDescriptors);
-    pthread_t writeToFilesThreadId;
+
 
     struct WriteToFilesArgs* writeToFilesArgs = malloc(sizeof(struct WriteToFilesArgs));
 
-//    clock_gettime(CLOCK_MONOTONIC, &start);
 
     int fileSizeRemainder = bytes / (filesAmount);
     int fileSizeQuotient = bytes % (filesAmount);
@@ -157,22 +157,14 @@ int main() {
     writeToFilesArgs->filesAmount = filesAmount;
     writeToFilesArgs->memoryRegion = memoryRegion;
 
-//    WriteToFilesOnce(writeToFilesArgs);
 
     if (pthread_create(&writeToFilesThreadId, NULL, WriteToFiles, (void*) writeToFilesArgs)) {
         free(writeToFilesArgs);
         perror("Can't create write to files thread");
     }
+}
 
-//    clock_gettime(CLOCK_MONOTONIC, &finish);
-//
-//    elapsed = (finish.tv_sec - start.tv_sec);
-//    elapsed += (finish.tv_nsec - start.tv_nsec) / 1000000000.0;
-//
-//    printf("Writing to files took: %f seconds\n", elapsed);
-
-//-------------------------------------READS AND AGGREGATES RANDOM DATA FROM FILES-------------------------------------
-
+void ReadAndAggregate() {
     pthread_t readFromFileThreads[READ_THREADS_AMOUNT];
 
     int fileIndex = 0;
@@ -205,6 +197,17 @@ int main() {
     printf("Total bytes read: %lu\n", totalBytesRead);
 #endif
     printf("Max value is: %d\n", max);
+}
+
+int main() {
+    InitSem();
+    InitializeMemory();
+
+    WriteRandomDataToMemory();
+
+    WriteRandomDataToFiles();
+
+    ReadAndAggregate();
 
     pthread_cancel(writeToFilesThreadId);
 
@@ -213,7 +216,7 @@ int main() {
     }
 
     if (munmap(memoryRegion, bytes) == -1) {
-//        close(outputFD);
+        close(outputFD);
         close(randomFD);
         perror("Error un-mmapping the file");
         exit(EXIT_FAILURE);

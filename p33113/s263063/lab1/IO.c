@@ -1,9 +1,11 @@
 #include "IO.h"
-#include "Constants.h"
+#include <time.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <time.h>
 #include <semaphore.h>
+#include "Constants.h"
 
 static sem_t fileSync;
 size_t totalBytesRead;
@@ -72,7 +74,7 @@ unsigned char ReadChar(int randomFD) {
         randomByteIndex += 1;
         return randomChar[randomByteIndex];
     } else {
-        size_t result = read(randomFD, &randomChar, sizeof(randomChar));
+        int result = read(randomFD, &randomChar, sizeof(randomChar));
         if (result == -1) {
             perror("Can't read int from /dev/urandom\n");
             return 0;
@@ -85,7 +87,7 @@ unsigned char ReadChar(int randomFD) {
 void* ReadFile(void* args) {
     struct ReadFromFileArgs* fileArgs = (struct ReadFromFileArgs*) args;
     unsigned char readBlock[IO_BLOCK_SIZE];
-    size_t readBytes;
+    int readBytes;
     printf("Started read from file thread\n");
     sem_wait(&fileSync);
     printf("Locked on read\n");
@@ -177,8 +179,6 @@ void* WriteToFiles(void* args) {
         sem_wait(&fileSync);
         printf("Locked on write\n");
         for (i = 0; i < writeToFilesArgs->filesAmount; i++) {
-//            CleanFile(i);
-//            OpenFile(i);
             if (writeToFilesArgs->fileSizeQuotient != 0 && i == writeToFilesArgs->filesAmount - 1) {
                 WriteToFile(writeToFilesArgs->memoryRegion, writeToFilesArgs->fileDescriptors[i], i, writeToFilesArgs->fileSizeQuotient);
             } else {
@@ -187,6 +187,5 @@ void* WriteToFiles(void* args) {
         }
         sem_post(&fileSync);
         printf("Unlocked on write\n");
-//        break;
     }
 }

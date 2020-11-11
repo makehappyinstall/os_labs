@@ -1,9 +1,8 @@
 #ifndef LAB1_IO_H
 #define LAB1_IO_H
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <zconf.h>
+#include <stddef.h>
+#include <pthread.h>
 
 struct WriteToMemoryArgs {
     int randomFD;
