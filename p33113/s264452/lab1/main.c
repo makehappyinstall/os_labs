@@ -292,7 +292,6 @@ int main()
      
     pthread_attr_t * memAttr = malloc(sizeof(pthread_attr_t));
     struct sched_param * memSP = malloc(sizeof(struct sched_param));
-    // memSP->sched_priority = 25;
 
     pthread_attr_setschedparam(memAttr, memSP);
     for (int i = 0; i < COUNTERS_THREAD_AMOUNT; i++) {
@@ -301,7 +300,7 @@ int main()
 
     fprintf(stderr, "Created %d aggregator threads\n", COUNTERS_THREAD_AMOUNT);
 
-    int times = 3;
+    const int times = 3;
     fprintf(stderr, "Unlocking all blocks after %d seconds\n", times);
     counter(times);
 
