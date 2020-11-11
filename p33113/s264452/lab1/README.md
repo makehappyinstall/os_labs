@@ -1,4 +1,4 @@
-# OS laboratory work [80%]
+# OS laboratory work
 
 > * Allocate memory with `mmap` and dump to files.
 > * Work with `pthread`
@@ -20,15 +20,8 @@ gcc main.c -pthread
 
 Run script with strace:
 ```bash
-./strace.sh
+./scripts/strace.sh
 ```
 
-### Other files
-
-Move to test directory
-
-* [pthreadtest.c](test/pthreadtest.c) - prove that threads have the same pid [`make pthread-test`]
-* [random.c](test/random.c) - work with `/dev/urandom` [`make random`]
-* [random-with-thread.c](test/random-with-thread.c) - random + pthread [`make random-t`]
 
 
