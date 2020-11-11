@@ -93,7 +93,7 @@ fmem(void *addr, size_t size, int logEnabled)
    
     }
     
-    for (int i = 0; i < THREADS_AMOUNT; i++) {
+    for (size_t i = 0; i < THREADS_AMOUNT; i++) {
         err = pthread_join(threads[i], NULL);
 
         if (err != 0)
@@ -162,8 +162,8 @@ dumpMem(const int fd, const void * addr, const int size, int * futex) {
 
 void
 counter(unsigned int times) {
-    for (int i = times; i > 0; i--) {
-        fprintf(stderr, "...%d\n", i);
+    for (size_t i = times; i > 0; i--) {
+        fprintf(stderr, "...%ld\n", i);
         sleep(1);
     }
 }
@@ -246,6 +246,8 @@ readFileFunc(void * arg) {
 
 int main()
 {
+	// Memory allocation operations
+
     const int fillMemSize = FILL_MEM_SIZE * 1024 * 1024;
     fprintf(stderr, "\nAllocating memory with mmap function");
     void * mmapAddr = fmem((void *)ALLOC_ADDR, fillMemSize, true);
@@ -257,11 +259,14 @@ int main()
     fprintf(stderr, "\nAfter deallocation");
     systemFree();
 
-    
+
+	
+	// Dump memory to files and aggregate them in separate threads with futex   
+
     const void * memoryAddr = fmem((void *) ALLOC_ADDR, FILL_MEM_SIZE, false);
     
     const size_t dumpMemSize = DUMP_FILE_SIZE * 1024 * 1024;
-    const int filesAmount = fillMemSize / dumpMemSize + (fillMemSize % dumpMemSize > 0 ? 1 : 0);
+    const size_t filesAmount = fillMemSize / dumpMemSize + (fillMemSize % dumpMemSize > 0 ? 1 : 0);
 
     int files[filesAmount];
 
@@ -296,20 +301,22 @@ int main()
 
     pthread_attr_setschedparam(memDTA, memDP);
     pthread_create(&memDumpTP, NULL, dumpMemThreadFunc, args);
-    fprintf(stderr, "Writing thread created...\n");
+
+    fprintf(stderr, "Write-thread created...\n");
     
-    fprintf(stderr, "Creating reading threads\n");
+    fprintf(stderr, "Creating aggregator-threads\n");
+
     pthread_t counters[COUNTERS_THREAD_AMOUNT];
      
     pthread_attr_t * memAttr = malloc(sizeof(pthread_attr_t));
     struct sched_param * memSP = malloc(sizeof(struct sched_param));
-
     pthread_attr_setschedparam(memAttr, memSP);
+
     for (size_t i = 0; i < COUNTERS_THREAD_AMOUNT; i++) {
         counters[i] = pthread_create(&counters[i], NULL, readFileFunc, args); 
     }
 
-    fprintf(stderr, "Created %d aggregator threads\n", COUNTERS_THREAD_AMOUNT);
+    fprintf(stderr, "Created %d aggregator-threads\n", COUNTERS_THREAD_AMOUNT);
 
     const int times = 3;
     fprintf(stderr, "Unlocking all blocks after %d seconds\n", times);
@@ -317,6 +324,7 @@ int main()
 
 
     fprintf(stderr, "Unlocking all blocks...\n");
+    
     for (size_t i = 0; i < filesAmount; i++) {
         int * futex = args->dumpMap[i]->futex;
         wakeFutexBlocking(futex, 1);
