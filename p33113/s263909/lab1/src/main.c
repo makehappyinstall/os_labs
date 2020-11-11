@@ -13,7 +13,7 @@
 #include <linux/futex.h>
 #include <syscall.h>
 #include "../lib/flags.h"
-#include "./main.h"
+#include "main.h"
 
 const unsigned char preallocate = 	0x1;	//0000 0001
 const unsigned char afteralloc = 	0x2;	//0000 0010
@@ -25,11 +25,13 @@ void *addr;
 
 int main(int args, char * argv[]){
 	//check flags
-	//example: ./main -alloc=x, x={0,1,2,4,8}
+	//example: ./main -alloc=x, x={0,1,2,4,8 ...}
 	initFlag(args, argv);
 	flag_int(&flags,"alloc");
+
+	mkdir(RES, 0777);
 	
-	//I well use it to break cycle (^C)
+	//I will use it to break cycle (^C)
 	signal(SIGINT, interrupt_signal);
 
 	//check do we need dump before allocate
@@ -38,7 +40,7 @@ int main(int args, char * argv[]){
 		getchar();
 	}
 	
-	void* memory_pointer =  (void *) START;
+	//void* memory_pointer =  (void *) START;
 	
 	/**There we allocate memory close to chosen memory
 	 * 242 Mb = 242*1024*1024
@@ -46,12 +48,12 @@ int main(int args, char * argv[]){
 	 * shared with other process and don't use file (anonimus)
 	 * because of anonimus file descriptor is -1
 	 * offset is 0 by the rules*/
-	int file = open("./file", O_RDWR);
+	const int file = open(MFILE, O_RDWR|O_CREAT);
 	ftruncate(file, 242*1024*1024);
-	memory_pointer = mmap(memory_pointer,242*1024*1024,PROT_READ|PROT_WRITE,MAP_PRIVATE,file,0);
-	addr = memory_pointer;
+	/*memory_pointer*/addr = mmap((void *)START/*memory_pointer*/,242*1024*1024,PROT_READ|PROT_WRITE,MAP_PRIVATE,file,0);
+	//addr = memory_pointer;
 	//assert will output error if there is something wrong
-	assert(memory_pointer != MAP_FAILED);
+	assert(/*memory_pointer*/addr != MAP_FAILED);
 
 	if (flags & afteralloc){
 		puts("it's time to check memorry(afret allocation)\npress enter to continue");
@@ -61,22 +63,25 @@ int main(int args, char * argv[]){
 	//endless cycle starts here
 	while(1){
 		puts("<--cycle start-->");
-		write_to_memory(memory_pointer);
+		write_to_memory(/*memory_pointer*/addr);
 
-		FILE *first = fopen("./res/first", "wb");
+		FILE *first = fopen(FIRST, "wb");
 		if (first == NULL){
 			perror("first file error");
 			exit(FILE_ERR);
 		}
-		read_from_memory(first, memory_pointer);
+		read_from_memory(first, /*memory_pointer*/addr);
 		fclose(first);
 
-		FILE *second = fopen("./res/second", "wb");
+		FILE *second = fopen(SECOND, "wb");
 		if (second == NULL) {
 			perror("second file error");
 			exit(FILE_ERR);
 		}
-		read_from_memory(second, (memory_pointer+162*1024*1024-0x5200059));
+		//извините, не могу написать это по английски
+		//тут нужно поделить область памяти на 2 файла, файлы 162Мб а память 242Мю
+		//не сходится, вот и 0x5200059 это отступ, ровно столько байт будет пересекаться в файлах
+		read_from_memory(second, ((uint8_t *)/*memory_pointer*/addr+162*1024*1024-0x5200059));
 		fclose(second);
 		agr_state_thread();
 
@@ -89,6 +94,8 @@ int main(int args, char * argv[]){
 
 	return OK;
 }
+
+
 /**Thit function accepts memory pointer
  * start threads and make structures for thread's function
  * 35 threads for 242mb which is
@@ -111,6 +118,7 @@ void write_to_memory(void * memory_pointer){
 	}
 }
 
+
 /**This function will write directly into the memory
  * fopen seems better idea than cycles
  * we read data from urandom and place it in memory
@@ -118,16 +126,18 @@ void write_to_memory(void * memory_pointer){
 void *write_thread(void *arg){
 	struct chunk *piece = (struct chunk*) arg;
 	FILE *urand = fopen("/dev/urandom", "r");
-	fread((piece->mem_pointer + piece->start), 1, piece->size, urand);
+	fread(((uint8_t *)piece->mem_pointer + piece->start), 1, piece->size, urand);
 	return 0;
 }
+
 
 /**This function reads 162 Mb from memory to file*/
 void read_from_memory(FILE *file, void * memory_pointer){
 	for (uint32_t counter = 0; counter < 162*1024*1024; counter += 129) {
-		fwrite(memory_pointer+counter, sizeof(uint8_t), 129, file);
+		fwrite((uint8_t *)memory_pointer+counter, sizeof(uint8_t), 129, file);
 	}
 }
+
 
 /**This function create threads
  * and threads arguments (struct agr_state)
@@ -141,8 +151,8 @@ void agr_state_thread(void){
 	uint64_t size = 162*1024*1024/23;
 	uint64_t remainder = 162*1024*1024%23;
 	uint64_t offset = 0;
-	FILE *f1 = fopen("./res/first", "rb");
-	FILE *f2 = fopen("./res/second", "rb");
+	FILE *const f1 = fopen(FIRST, "rb");
+	FILE *const f2 = fopen(SECOND, "rb");
 	assert((f1!=NULL)&&(f2!=NULL));
 	for (uint8_t i = 0; i<45; i+=2) {
 		if (i == 44)
@@ -161,7 +171,8 @@ void agr_state_thread(void){
 	}
 	futex_wake(&futex,1);
 	for (uint8_t i = 0; i<46; i++) {
-		pthread_join(tid[i], results+(i*sizeof(uint64_t)));
+		void * tmp = (uint8_t *)results+(i*sizeof(uint64_t));
+		pthread_join(tid[i], tmp);
 	}
 	resultss = results;
 	for (uint8_t i = 0; i<46; i++) {
@@ -169,6 +180,7 @@ void agr_state_thread(void){
 	}
 	printf("files data sum -> %"PRId64"\n",sum);
 }
+
 
 /**This function read chunk of data from file
  * and compute sum of the data*/
@@ -186,6 +198,7 @@ void *agrigate_state(void* arg){
 	return (void*)sum;
 }
 
+
 /**This function was created to take interrupt signal
  * and break endless cycle
  * It allows us to read system data*/
@@ -195,13 +208,18 @@ void interrupt_signal(int32_t sig){
 		puts("it's time to check memory after dealloc\npress enter to continue");
 		getchar();
 	}
+	if (remove(FIRST)||remove(SECOND)||remove(MFILE)||rmdir(RES)) {
+		puts("cannot remove files");
+	}
 	exit(0);
 }
+
 
 //system calls for futex
 int futex_wait(int *uaddr, int val){
 	return syscall(SYS_futex, uaddr, FUTEX_WAIT, val, NULL, NULL, 0);
 }
+
 
 int futex_wake(int *uaddr, int val){
 	return syscall(SYS_futex, uaddr, FUTEX_WAKE, val, NULL, NULL, 0);

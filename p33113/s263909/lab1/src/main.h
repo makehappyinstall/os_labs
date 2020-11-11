@@ -1,8 +1,10 @@
 #ifndef MAIN_H
 #define MAIN_H
-#include <stdint.h>
-#include <stdio.h>
 #define START 0xC5FA086B
+#define RES "./res/"
+#define FIRST RES"/first"
+#define SECOND RES"/second"
+#define MFILE "./file"
 void write_to_memory(void * pointer);
 void *write_thread(void *arg);
 void read_from_memory(FILE *file, void * memory_pointer);

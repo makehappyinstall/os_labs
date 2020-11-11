@@ -1,15 +1,18 @@
 CC = gcc
-DEST = build/main
+DESTDIR = ./build
+DEST = $(DESTDIR)/main
 SRC = src/main.c
 LIBF = ./lib/
 LIB = -lcflags -lpthread
-FLAGS = -Wall -Wpedantic
+FLAGS = -Wall -Werror -Wpedantic
 
 all: src/main.c
+	mkdir $(DESTDIR)
 	$(CC) $(FLAGS) -o $(DEST) $(SRC) -L$(LIBF) $(LIB)
 
 debug: src/main.c
+	mkdir $(DESTDIR)
 	$(CC) -g -o $(DEST) $(SRC) -L$(LIBF) $(LIB)
 
 clean:
-	rm $(DEST) res/*
+	rm -rf $(DESTDIR)
