@@ -1,17 +1,16 @@
 #include <stdio.h>
-#include <sys/mman.h>
 #include <stdlib.h>
-#include <limits.h>
 #include <pthread.h>
-#include <sys/types.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <math.h>
-#include <fcntl.h>
 #include <linux/futex.h>
 #include <errno.h>
+#include <sys/mman.h>
+#include <sys/types.h>
 #include <sys/syscall.h>
 #include <sys/shm.h>
+#include <limits.h>
 #include <inttypes.h>
 #include <sched.h>
 
