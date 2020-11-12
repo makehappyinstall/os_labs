@@ -142,7 +142,7 @@ void *writeToFiles(void *thread_data) {
     int *write_pointer = data->start;
 
     for (int i = 0; i < data->filesAmount; i++) {
-        char filename[9] = "os_file_0";
+        char filename[] = "os_file_0";
         filename[8] = '0' + i;
 
         struct flock readLock;
