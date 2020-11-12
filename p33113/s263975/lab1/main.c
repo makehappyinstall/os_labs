@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdnoreturn.h>
 #include <errno.h>
 
 // For O_DIRECT
@@ -26,6 +27,8 @@ int G = 107; // размер блока ввода-вывода (байт)
 int I = 50; // кол-во потоков, осуществляющих чтение файлов и подсчитывающих агрегированные характеристики данных
 // J - среднее значение
 // K - примитив синхронизации - sem
+
+#define READ_BUF_INTS_NUMBER 250
 
 int urandom_fd;
 sem_t semaphore;
@@ -54,6 +57,10 @@ struct fill_task {
     size_t offset;
     size_t length;
 };
+struct count_task {
+	size_t parts;
+	size_t file_path_length;
+};
 
 void* fill_buffer(void *task_p) {
     struct fill_task *task = (struct fill_task *) task_p;
@@ -68,15 +75,17 @@ void* fill_buffer(void *task_p) {
     return task_p;
 }
 
-void* count_avg(void *parts) {
+noreturn void* count_avg(void *taskp) {
+	struct count_task *task = (struct count_task *) taskp;
+	char file_path[task->file_path_length];
+
     long double avg = 0;
-    char *file_path = malloc(16);
-    const size_t buf_size = 250 * sizeof(int);
+    const size_t buf_size = READ_BUF_INTS_NUMBER * sizeof(int);
     int *buf = malloc(buf_size);
 
     while (true) {
         avg = 0.0;
-        for (int i = 0; i < *((size_t *) parts); i++) {
+        for (int i = 0; i < task->parts; i++) {
             sprintf(file_path, file_path_format, i);
             int file_fd = open(file_path, O_RDONLY);
             sem_wait(&semaphore);
@@ -91,8 +100,8 @@ void* count_avg(void *parts) {
                     printf("Failed to read file util the end :(");
                     break;
                 }
-                for (int k = 0; k < buf_size; k += sizeof(int)) {
-                    avg += (double)*(buf + k) / (double)numbers;
+                for (int k = 0; k < READ_BUF_INTS_NUMBER; k++) {
+                    avg += (double)(*(buf + k) / (double)numbers);
                 }
             }
 
@@ -101,8 +110,6 @@ void* count_avg(void *parts) {
         }
     }
     free(buf);
-    free(file_path);
-    return 0;
 }
 
 
@@ -110,8 +117,8 @@ void* count_avg(void *parts) {
 int main(int argc, char **argv) {
     char *buffer;
     bool counting = false;
-    pthread_t *generator_threads;
-    pthread_t *counter_threads;
+    pthread_t generator_threads[D];
+    pthread_t counter_threads[I];
 
     int c;
     while ( (c = getopt(argc, argv, "bof:ph")) != -1) {
@@ -129,6 +136,7 @@ int main(int argc, char **argv) {
                     unsigned long len = strlen(optarg);
                     file_path_format = malloc(sizeof(char) * (len + 8));
                     sprintf(file_path_format, "%s/file%%d", optarg);
+
                     printf("Writing to '%s'\n", optarg);
                 }
                 break;
@@ -158,7 +166,15 @@ int main(int argc, char **argv) {
     allocate_size = A * 1e6;
     file_size = E * 1e6;
 
-    size_t parts = allocate_size/file_size;
+    size_t file_path_length = strlen(file_path_format) + 1;
+    size_t parts = allocate_size / file_size;
+    while(parts > 0) {
+        file_path_length++;
+        parts /= 10;
+    }
+    parts = allocate_size / file_size;
+
+    char file_path[file_path_length];
     while(true) {
         buffer = malloc(allocate_size);
         if (print_buffer) {
@@ -166,7 +182,6 @@ int main(int argc, char **argv) {
         }
         pause_until_stdin("Allocated");
 
-        generator_threads = malloc(sizeof(void *) * D);
         for (int i = 0; i < D; i++) {
             struct fill_task *task = malloc(sizeof(struct fill_task));
             task->buf = buffer;
@@ -186,10 +201,8 @@ int main(int argc, char **argv) {
             }
             free(task);
         }
-        free(generator_threads);
         pause_until_stdin("Filled");
 
-        char *file_path = malloc(16);
         for (int i = 0; i < parts; i++) {
             sprintf(file_path, file_path_format, i);
             // O_DIRECT not working with ext4 and tmpfs, but works with ntfs-3g
@@ -212,12 +225,13 @@ int main(int argc, char **argv) {
             sem_post(&semaphore);
             close(file_fd);
         }
-        free(file_path);
 
         if (!counting) {
-            counter_threads = malloc(sizeof(void *) * I);
             for (int i = 0; i < I; i++) {
-                int ret = pthread_create(&counter_threads[i], NULL, count_avg, &parts);
+                struct count_task *task = malloc(sizeof(struct count_task));
+                task->parts = parts;
+                task->file_path_length = file_path_length;
+                int ret = pthread_create(&counter_threads[i], NULL, count_avg, task);
                 if (ret) {
                     printf("Failed to create all threads\n");
                     return 5;
@@ -234,7 +248,6 @@ int main(int argc, char **argv) {
             break;
         }
     }
-    free(counter_threads);
 
     sem_destroy(&semaphore);
     close(urandom_fd);
