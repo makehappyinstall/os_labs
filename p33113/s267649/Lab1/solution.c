@@ -2,7 +2,7 @@
  * Вариант:
  * A=352;B=0x81176CF6;C=mmap;D=69;E=18;F=nocache;G=62;H=seq;I=37;J=min;K=flock
  **/
-#define _GNU_SOURCE
+
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <errno.h>
