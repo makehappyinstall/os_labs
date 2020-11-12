@@ -1,4 +1,4 @@
-C=gcc
+C=cc
 C_STD=c11
 C_FLAGS= -Werror -Wpedantic -Wall
 LIBS=-pthread -lm
