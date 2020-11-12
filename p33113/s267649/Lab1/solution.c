@@ -3,7 +3,6 @@
  * A=352;B=0x81176CF6;C=mmap;D=69;E=18;F=nocache;G=62;H=seq;I=37;J=min;K=flock
  **/
 #define _GNU_SOURCE
-
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <errno.h>
@@ -18,15 +17,15 @@
 
 #define MMAP_ADDRESS (void*) 0x81176CF6
 #define MMAP_LENGTH 352000000 // 352 MB
-#define MMAP_PROTECTION PROT_READ | PROT_WRITE
-#define MMAP_FLAGS MAP_PRIVATE | MAP_ANONYMOUS
+#define MMAP_PROTECTION (PROT_READ | PROT_WRITE)
+#define MMAP_FLAGS (MAP_PRIVATE | MAP_ANONYMOUS)
 #define MMAP_FD -1 // flags = MAP_ANONYMOUS, but some systems require this to be -1
 #define MMAP_OFFSET 0
 
 #define FILE_SIZE 17999872 // 18 MB
 #define RANDOM_SRC "/dev/urandom"
 #define FILL_THREADS 69 
-#define FILES_NUMBER MMAP_LENGTH/FILE_SIZE + (MMAP_LENGTH % FILE_SIZE == 0 ? 0 : 1)
+#define FILES_NUMBER (MMAP_LENGTH/FILE_SIZE + (MMAP_LENGTH % FILE_SIZE == 0 ? 0 : 1))
 #define BLOCK_SIZE 512
 #define ANALYZING_THREADS 37
 
@@ -213,7 +212,7 @@ void analyzeFile(char* fileName) {
 
     // Ищем минимальное 8-байтовое беззнаковое число в файле
     __uint64_t min = data[0];
-    for (size_t i = 0; i < readBytes/sizeof(__uint64_t); i += 1) {
+    for (size_t i = 1; i < readBytes/sizeof(__uint64_t); i += 1) {
         if (data[i] < min)
             min = data[i];
     }
