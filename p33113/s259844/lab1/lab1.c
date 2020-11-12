@@ -259,8 +259,8 @@ void gen_and_write(const char * filename, sem_t file_semaphores[]) {
                     exit(-7);
             }
 
-            for (size_t aaa = 0; aaa < cnt; ) {
-                aaa += fwrite(memory + offset * 1024 * 1024 + file_size - blk_offset - cnt + aaa, 1, cnt - aaa, file);
+            for (size_t blk_written = 0; blk_written < cnt; ) {
+                blk_written += fwrite(memory + offset * 1024 * 1024 + file_size - blk_offset - cnt + blk_written, 1, cnt - blk_written, file);
             }
 
             seek_err = fseek(file, -cnt, SEEK_CUR);
@@ -354,7 +354,7 @@ void * read_main_thread(void * thread_data) {
 
 int main() {
     srand(time(NULL));
-    char filename[9] = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    char filename[10] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     for (unsigned int i = 0; i < 9; ++i) {
         filename[i] = random() % ('z' - 'A') + 'A';
     }
