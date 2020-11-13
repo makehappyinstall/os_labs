@@ -24,7 +24,7 @@
 
 #define FILE_SIZE 17999872 // 18 MB
 #define RANDOM_SRC "/dev/urandom"
-#define FILL_THREADS 69 
+#define FILL_THREADS 69
 #define FILES_NUMBER (MMAP_LENGTH/FILE_SIZE + (MMAP_LENGTH % FILE_SIZE == 0 ? 0 : 1))
 #define BLOCK_SIZE 512
 #define ANALYZING_THREADS 37
@@ -32,41 +32,23 @@
 #define FILE_LOCK_READ 0
 #define FILE_LOCK_WRITE 1
 
-
-void* fillThreadHandler(void*);
-
-void generateData();
-void writeData();
-void writeSingleFile(char*, void*, int);
-void freeData();
-void startBackgroundReading();
-void* fileAnalyzeThreadHandler(void*);
-void setMinPriorityForCurrentThread();
-void analyzeFile(char*);
-
-void fileLock(int, int);
-void fileUnlock(int, int);
-
-void signalHandler(int);
-
-void printCat();
-
 void* regionPtr; // Указатель на область в памяти, которую будем данными заполнять
 int randomFd; // Дескриптор файла /dev/urandom
+void* fillThreadHandler(void* vargPtr) { // Это функция, которая выполнится в отдельном потоке
+    int chunkSize = MMAP_LENGTH/FILL_THREADS; // Сколько этот поток должен записать (84 МБ / 127 потоков = ~661 Кб на поток)
+    int threadIndex = *(int*)vargPtr; // Индекс этого потока (0, 1, 2...)
+    void* ptrStart = regionPtr + threadIndex * chunkSize; // Место, откуда надо начать записывать
 
-int main() {
-    // Сообщаем операционной системе, что мы хотим ловить сигналы SIGINT (нажатие на Ctrl+C) и SIVSEGV (segmentation violation signal, 'segmentation fault')
-    // При поступлении сигнала будет вызвана функция signalHandler
-    signal(SIGINT, signalHandler);
-    signal(SIGSEGV, signalHandler);
+    // При делении области памяти на количество потоков результат обрезается, поэтому последний поток пишет на несколько байт больше, чтобы восстановить пробел
+    if (*(int*)vargPtr == FILL_THREADS - 1) // Этот поток заполняет последнюю часть(надеюсь)
+        chunkSize += MMAP_LENGTH - MMAP_LENGTH/FILL_THREADS*FILL_THREADS;
 
-    printCat();
-    startBackgroundReading();
+    // Чтение из /dev/urandom в указанную область памяти
+    ssize_t result = read(randomFd, ptrStart, chunkSize);
 
-    while(1) {
-        generateData();
-        writeData();
-        freeData();
+    if (result == -1) {
+        printf("Не получилось заполнить область с %p, размер = %d, errno = %d\n", ptrStart, chunkSize, errno);
+        exit(-1);
     }
 }
 
@@ -124,7 +106,7 @@ void writeSingleFile(char* fileName, void* start, int size) {
     int blocksNumber = size/BLOCK_SIZE; // Считаем количество блоков
     if (BLOCK_SIZE*blocksNumber < size)
         blocksNumber++;
-    
+
     // Откываем файл fileName, O_CREAT позволяет создать файл, если его нет,
     // O_WRONLY открывает файл только для чтения.
     // S_IRWXU, S_IRGRP и S_IROTH - флаги доступа
@@ -168,15 +150,6 @@ void freeData() {
     munmap(regionPtr,MMAP_LENGTH);
 }
 
-void startBackgroundReading() {
-    printf("Анализирую содержимое файлов, используя %d потоков...\n", ANALYZING_THREADS);
-
-    pthread_t threads[ANALYZING_THREADS];
-    for (int i = 0; i < ANALYZING_THREADS; i++) {
-        pthread_create(&threads[i], NULL, fileAnalyzeThreadHandler, NULL);
-    }
-}
-
 void* fileAnalyzeThreadHandler(void* vargPtr) {
     while(1) {
         for (int i = 0; i < FILES_NUMBER; i++) {
@@ -184,6 +157,15 @@ void* fileAnalyzeThreadHandler(void* vargPtr) {
 
             analyzeFile(fileName);
         }
+    }
+}
+
+void startBackgroundReading() {
+    printf("Анализирую содержимое файлов, используя %d потоков...\n", ANALYZING_THREADS);
+
+    pthread_t threads[ANALYZING_THREADS];
+    for (int i = 0; i < ANALYZING_THREADS; i++) {
+        pthread_create(&threads[i], NULL, fileAnalyzeThreadHandler, NULL);
     }
 }
 
@@ -201,7 +183,7 @@ void analyzeFile(char* fileName) {
     off_t size = lseek(fd, 0L, SEEK_END);
     // Возвращаем указатель обратно
     lseek(fd, 0, SEEK_SET);
-    
+
     // Выделаем в памяти место под содержимое файла
     __uint64_t* data = (__uint64_t*) malloc(size);
     // Читаем файл в память целиком
@@ -250,24 +232,6 @@ void fileUnlock(int fd, int mode) {
 
 }
 
-void* fillThreadHandler(void* vargPtr) { // Это функция, которая выполнится в отдельном потоке
-    int chunkSize = MMAP_LENGTH/FILL_THREADS; // Сколько этот поток должен записать (84 МБ / 127 потоков = ~661 Кб на поток)
-    int threadIndex = *(int*)vargPtr; // Индекс этого потока (0, 1, 2...)
-	void* ptrStart = regionPtr + threadIndex * chunkSize; // Место, откуда надо начать записывать
-
-    // При делении области памяти на количество потоков результат обрезается, поэтому последний поток пишет на несколько байт больше, чтобы восстановить пробел
-    if (*(int*)vargPtr == FILL_THREADS - 1) // Этот поток заполняет последнюю часть(надеюсь)
-        chunkSize += MMAP_LENGTH - MMAP_LENGTH/FILL_THREADS*FILL_THREADS;
-
-    // Чтение из /dev/urandom в указанную область памяти
-    ssize_t result = read(randomFd, ptrStart, chunkSize);
-
-    if (result == -1) {
-        printf("Не получилось заполнить область с %p, размер = %d, errno = %d\n", ptrStart, chunkSize, errno);
-        exit(-1);
-    }
-}
-
 // Эта функция вызывается, если пришёл сигнал
 void signalHandler(int signum) {
     if (signum == SIGINT) {
@@ -280,35 +244,51 @@ void signalHandler(int signum) {
 }
 
 void printCat() {
-    printf("                    %%                                                         \n");
-    printf("                  /&&/&  /&(  *%                                               \n");
-    printf("                  &   %%&    &*                                                \n");
-    printf("                   #&.%  ,&   ,&,                      #&&# &   &              \n");
-    printf("                   &   .  /%&%.%&                      /&  %&   &#  &          \n");
-    printf("                  %,     /(                              ##   /&#  &(          \n");
-    printf("                  &     *(      .&& (%                  &*  #(  ((  %(         \n");
-    printf("                 /#    .&    %&      *%   &&&&/.&      &       &.%&&&          \n");
-    printf("                  &     &  .&*         *,        &    .&         &             \n");
-    printf("                  &    & *&&.     &  &%(*(%%&    &,  .&        .&              \n");
-    printf("                  &   *&%&         &*         &  (#  &        &/               \n");
-    printf("                 //   &% &         &,         (#  &,%       %(                 \n");
-    printf("                #(       %&%    %&(%         &   &%      *&                    \n");
-    printf("                 #/               %%  &&%&&&&.          .&                     \n");
-    printf("                 &               %&&&                  &.        /#%(          \n");
-    printf("                *%             &&&&&&                 &       &(       &       \n");
-    printf("                &.           &&&&&&&                 *&      /%         (*     \n");
-    printf("               &              ,&&,                  %/       &          #*     \n");
-    printf("               .&                                    &        /%          &    \n");
-    printf("               (&                                    &         &          &.   \n");
-    printf("               &                                     %/        &,         &    \n");
-    printf("       &%   &#&                                      &       #%          &     \n");
-    printf("       &       &                                      &&%.  #&           &     \n");
-    printf("       &                                              ,       %#        &.     \n");
-    printf("       #%                                                      &      ,&       \n");
-    printf("       (%&&.                                                  %(   ,&%         \n");
-    printf("     #/                                                      &(.               \n");
-    printf("      &*&/  .       .(%#((/**,,,,,**/(%&&%%#/,           ,&*  .&               \n");
-    printf("     *&.&&&# ,&#.  %%   #%   /    %%  %   #    . &&     % .%  &                \n");
-    printf("        ,%      &/  %%   *%   %%  *&   (#  .&( (&  &,  (&.&#                   \n");
-    printf("                   .   (        /    *       %                                 \n\n\n\n\n");
+    puts("                    %%                                                         ");
+    puts("                  /&&/&  /&(  *%                                               ");
+    puts("                  &   %%&    &*                                                ");
+    puts("                   #&.%  ,&   ,&,                      #&&# &   &              ");
+    puts("                   &   .  /%&%.%&                      /&  %&   &#  &          ");
+    puts("                  %,     /(                              ##   /&#  &(          ");
+    puts("                  &     *(      .&& (%                  &*  #(  ((  %(         ");
+    puts("                 /#    .&    %&      *%   &&&&/.&      &       &.%&&&          ");
+    puts("                  &     &  .&*         *,        &    .&         &             ");
+    puts("                  &    & *&&.     &  &%(*(%%&    &,  .&        .&              ");
+    puts("                  &   *&%&         &*         &  (#  &        &/               ");
+    puts("                 //   &% &         &,         (#  &,%       %(                 ");
+    puts("                #(       %&%    %&(%         &   &%      *&                    ");
+    puts("                 #/               %%  &&%&&&&.          .&                     ");
+    puts("                 &               %&&&                  &.        /#%(          ");
+    puts("                *%             &&&&&&                 &       &(       &       ");
+    puts("                &.           &&&&&&&                 *&      /%         (*     ");
+    puts("               &              ,&&,                  %/       &          #*     ");
+    puts("               .&                                    &        /%          &    ");
+    puts("               (&                                    &         &          &.   ");
+    puts("               &                                     %/        &,         &    ");
+    puts("       &%   &#&                                      &       #%          &     ");
+    puts("       &       &                                      &&%.  #&           &     ");
+    puts("       &                                              ,       %#        &.     ");
+    puts("       #%                                                      &      ,&       ");
+    puts("       (%&&.                                                  %(   ,&%         ");
+    puts("     #/                                                      &(.               ");
+    puts("      &*&/  .       .(%#((/**,,,,,**/(%&&%%#/,           ,&*  .&               ");
+    puts("     *&.&&&# ,&#.  %%   #%   /    %%  %   #    . &&     % .%  &                ");
+    puts("        ,%      &/  %%   *%   %%  *&   (#  .&( (&  &,  (&.&#                   ");
+    puts("                   .   (        /    *       %                                 \n\n\n\n");
+}
+
+int main() {
+    // Сообщаем операционной системе, что мы хотим ловить сигналы SIGINT (нажатие на Ctrl+C) и SIVSEGV (segmentation violation signal, 'segmentation fault')
+    // При поступлении сигнала будет вызвана функция signalHandler
+    signal(SIGINT, signalHandler);
+    signal(SIGSEGV, signalHandler);
+
+    printCat();
+    startBackgroundReading();
+
+    while(1) {
+        generateData();
+        writeData();
+        freeData();
+    }
 }
