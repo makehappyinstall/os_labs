@@ -1,0 +1,1 @@
+sudo stap -x $(ps -A|grep main|awk '{print $1}') script

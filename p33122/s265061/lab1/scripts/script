@@ -1,0 +1,21 @@
+global opens, reads, writes, totals
+
+probe begin {
+printf("%8s %8s %8s %8s\n",
+"opens", "reads","writes", "current_thread")
+}
+probe syscall.openat {
+if (pid() == target()) opens++
+}
+probe syscall.pread {
+if ( pid() == target()) reads++
+}
+
+probe syscall.pwrite {
+if (pid() == target()) writes++
+}
+probe timer.ms(2000) {
+printf("%8d %8d %8d %8d\n", opens, reads, writes, tid())
+reads=0
+writes=0
+}

@@ -1,0 +1,1 @@
+top -p $(ps -A|grep main|awk '{print $1}')
