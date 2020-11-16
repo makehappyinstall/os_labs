@@ -37,18 +37,17 @@ int main(int args, char *argv[]){
     signal(SIGINT, close_signal);
     while(1){
         long total_size = 46*1024*1024;
-        long remaining_size = total_size;
         long size_for_one_thread = 3014656; //total_size / 16
         pthread_t thread_id;
         for (char i = 0; i < 16; i++){
             struct portion *block = malloc(sizeof(struct portion));//будет указатель на адрес первого байта структуры
             if((total_size -= size_for_one_thread) < size_for_one_thread){
-                size_for_one_thread = total_size;
+                size_for_one_thread += total_size;
                 total_size = 0;
             }
             block->memory_pointer = memory;
             block->size = size_for_one_thread;
-            block->offset = total_size - remaining_size;
+            block->offset = total_size ;
 
             //pthread_create(threadid, attr, start_routing, arg);
             pthread_create(&thread_id, NULL, write_thread, block);
