@@ -12,7 +12,7 @@
 #include <semaphore.h>
 #include "./main.h"
 
-static sem_t fileSync;
+static sem_t fileSync; // статическая память, заранее до начла исполнения, и потом так и остается
 
 int main(int args, char *argv[]){
     // до аллокации
@@ -28,7 +28,8 @@ int main(int args, char *argv[]){
     // flags = не используем файл и совместо с другими процессами
     // fd = раз файла нет то -1
     // offset = смещение 0
-    memory = mmap(memory, 46*1024*1024,PROT_READ|PROT_WRITE,MAP_SHARED|MAP_ANONYMOUS,-1,0); // done
+    memory = mmap(memory, 46*1024*1024,PROT_READ|PROT_WRITE,MAP_SHARED|MAP_ANONYMOUS,-1,0); // динамический,
+    // на куче выделяется, можно напрямую взаимодействовать, нужно освободать
     assert(memory != MAP_FAILED);
 
     //после аллокации
@@ -37,6 +38,7 @@ int main(int args, char *argv[]){
     signal(SIGINT, close_signal);
     while(1){
         long total_size = 46*1024*1024;
+        //long remaining_size = total_size;
         long size_for_one_thread = 3014656; //total_size / 16
         pthread_t thread_id;
         for (char i = 0; i < 16; i++){
@@ -47,7 +49,7 @@ int main(int args, char *argv[]){
             }
             block->memory_pointer = memory;
             block->size = size_for_one_thread;
-            block->offset = total_size ;
+            block->offset = total_size;
 
             //pthread_create(threadid, attr, start_routing, arg);
             pthread_create(&thread_id, NULL, write_thread, block);
@@ -62,6 +64,7 @@ int main(int args, char *argv[]){
         //| __O_DIRECT
         int file1 = open("./file1", O_RDWR | O_CREAT, (mode_t) 0600);
         posix_fadvise(file1, 0, 0, POSIX_FADV_DONTNEED);
+
         if (file1 == -1){
             perror("Error with file1");
             exit(FILE_ERR);
@@ -75,14 +78,13 @@ int main(int args, char *argv[]){
             perror("Error with file2");
             exit(FILE_ERR);
         }
-        read_from_memory(file2, memory+25*1024*1024-0x420000);
+        read_from_memory(file2, (char *)memory+25*1024*1024-0x420000); // memory+25*1024*1024-0x420000  its work
         close(file2);
 
         init_sem();
 
-        long long int sum = 0;
-        void * results = malloc(101*sizeof(unsigned long long int));
-        long *all_result;
+
+        unsigned long long int sum = 0;
         pthread_t threads_id[101];
         long size = 25*1024*1024/50;
         long remainder = 25*1024*1024%50;
@@ -99,8 +101,8 @@ int main(int args, char *argv[]){
             state2->size = size;
             state1->offset = offset;
             state2->offset = offset;
-            pthread_create(&(threads_id[i]), NULL, read_and_sum, state1);
-            pthread_create(&(threads_id[i+1]), NULL, read_and_sum, state2);
+            pthread_create(threads_id + i, NULL, read_and_sum, state1);//&(threads_id[i])
+            pthread_create(threads_id + i + 1, NULL, read_and_sum, state2);//&(threads_id[i+1])
             offset += size;
 
         }
@@ -111,21 +113,19 @@ int main(int args, char *argv[]){
         pthread_create(&(threads_id[100]), NULL, read_and_sum, state1);
 
 
-        for(char i = 0; i < 101; i++){
-            pthread_join(threads_id[i], results+(i*sizeof(long)));
+        for(size_t i = 0; i < 101; i++){
+            void* tmp;
+            pthread_join(threads_id[i], &(tmp));
+            sum += *(unsigned long long*)tmp;
+            free(tmp);
         }
-        all_result = results;
-        for(char i = 0; i < 101; i++){
-            sum += all_result[i];
-        }
-        printf("%lld\n",sum);
+
+        printf("RND NUM SUM: %lld\n",sum);
 
         //после аллокации
         puts("After writting");
         getchar();
     }
-
-    return OK;
 }
 
 void init_sem(){
@@ -133,16 +133,15 @@ void init_sem(){
 }
 void *write_thread(void *arg){
     struct portion *block = (struct portion*) arg;
-    FILE *random = fopen("/dev/urandom", "r");
-    fread(block->memory_pointer + block->offset, 1, block->size, random);
+    FILE *random = fopen("/dev/urandom", "rb");
+    fread((char *)block->memory_pointer + block->offset, 1, block->size, random);
     return 0;
 }
 
-void read_from_memory(int file, const unsigned char* memory_pointer){
+void read_from_memory(int file, const char* memory_pointer){
     unsigned char buffer[38];
     int now_size = 0;
     size_t answer;
-    size_t i;
     for (int i = 0; i < 25*1024*1024; i++) {
         buffer[now_size] = memory_pointer[i];
         now_size += 1;
@@ -158,9 +157,10 @@ void read_from_memory(int file, const unsigned char* memory_pointer){
 }
 
 
-void *read_and_sum(void* arg){
+void* read_and_sum(void* arg){
     struct state * state = (struct state*) arg;
-    long sum = 0;
+    long sum = 0; // автоматический тип память на стеке, улетаюююююют после функции
+    unsigned long long* sum_p = malloc(sizeof(unsigned long long));
     long point = 0;
     sem_wait(&fileSync);
     fseek(state->fd, state->offset, SEEK_SET); //переставляет указатель в файле
@@ -168,12 +168,14 @@ void *read_and_sum(void* arg){
         point = fgetc(state->fd);//получает один char из файла
         sum += point;
     }
+    *sum_p = sum;
     sem_post(&fileSync);
-    return (void*)sum;
+    return (void*) sum_p;
 }
 
 void close_signal(int32_t sig){
-    puts("affter deallocat");
+    puts("After deallocate");
     getchar();
     exit(0);
-};
+}
+
