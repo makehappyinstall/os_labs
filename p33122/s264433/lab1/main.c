@@ -42,14 +42,19 @@ void generate_in_mem(unsigned char *src){
     size_t wrn_part =  A * 1024 * 1024 / D;
     unsigned char * start = src;
     pthread_t wrn_threads[D];
+    wrn_args wrn_data[D];
     for (int i = 0; i<D-1; i++){
-        wrn_args wrn_data = {start, wrn_part, urandom};
-        pthread_create(&(wrn_threads[i]), NULL, write_random_numbers, &wrn_data);
+        wrn_data[i].start = start;
+        wrn_data[i].count = wrn_part;
+        wrn_data[i].urandom = urandom;
+        pthread_create(&(wrn_threads[i]), NULL, write_random_numbers, &wrn_data[i]);
         start+=wrn_part;
     }
 
-    wrn_args wrn_data = {start, wrn_part + A * 1024 * 1024 % D, urandom};
-    pthread_create(&(wrn_threads[D-1]), NULL, write_random_numbers, &wrn_data);
+    wrn_data[D-1].start = start;
+    wrn_data[D-1].count = wrn_part + A * 1024 * 1024 % D;
+    wrn_data[D-1].urandom = urandom;
+    pthread_create(&(wrn_threads[D-1]), NULL, write_random_numbers, &wrn_data[D-1]);
     for(int i = 0; i < D; i++)
         pthread_join(wrn_threads[i], NULL);
 
