@@ -10,34 +10,33 @@
 
 
 
-#define A 18
+#define A 18 
 #define B 0x37C28270 
 #define D 93 
-#define E 135
+#define E 135 
 #define G 75 
 #define I 17 
 int threadsActivated = 1;
 
 
 
-
 int randRightVersion() {
 
     int retval;
-    int *myInt = (int *) malloc(sizeof(int));
-    *(((char *) myInt) + 0) = (rand());
+    int *myInt = (int *) malloc(sizeof(int)); 
+    *(((char *) myInt) + 0) = rand();
     *(((char *) myInt) + 1) = rand();
     *(((char *) myInt) + 2) = rand();
     *(((char *) myInt) + 3) = rand() % 127;
     retval = *myInt;
-    free(myInt);
+    free(myInt); 
     return retval;
 }
 
 
 typedef struct {
     char *memoryRegion;
-    int numCount;
+    int numCount; 
 } generatorParams;
 
 
@@ -46,7 +45,7 @@ void *threadGenerator(void *funcParams) {
     int first_run = 1;
     do {
         for (int i = 0; i < params->numCount * 4; ++i) {
-            params->memoryRegion[i] = rand() % 256;
+            params->memoryRegion[i] = rand();
         }
         if (first_run) {
             first_run = 0;
@@ -58,11 +57,9 @@ void *threadGenerator(void *funcParams) {
 
 typedef struct {
     int filesNumber;
-    sem_t* semaphore;
-    int *start;
-    int futexCompare;
+    sem_t *semaphore; 
+    int *start; 
 } fileWriterParams;
-
 
 
 void *threadFileWriter(void *funcParams) {
@@ -75,13 +72,13 @@ void *threadFileWriter(void *funcParams) {
             filename[5] = 'A' + i;
             int blocksAmount = A * 1024 * 1024 / G;
             FILE *currentFile;
-            fopen_s(&currentFile, filename, "w +");
+            fopen_s(&currentFile, filename, "w+");
             for (int d = 0; d < E * 1024 * 1024 / (G); d++) {
                 fwrite(thread_start_write + ((randRightVersion() % blocksAmount) * G), G, 1, currentFile);
             }
             fclose(currentFile);
 
-            sem_post(params->semaphore+i);
+            sem_post(params->semaphore + i);
         }
     } while (threadsActivated);
     return NULL;
@@ -91,15 +88,14 @@ void *threadFileWriter(void *funcParams) {
 typedef struct {
     int id;
     int fileNumber;
-    sem_t* semaphore;
+    sem_t *semaphore;
     int futexCompare;
 } fileReaderParams;
 
 
-//поток чтения
 void *threadFileReader(void *funcParams) {
     fileReaderParams *params = (fileReaderParams *) funcParams;
-    char filename[8] = "malab_\0";
+    char filename[8] = "malab_\0"; 
     filename[5] = 'A' + params->fileNumber;
 
     do {
@@ -107,26 +103,24 @@ void *threadFileReader(void *funcParams) {
         double sum = 0;
         long file_size = 0;
         FILE *current_file;
-        do {
-            fopen_s(&current_file, filename, "r");
-        } while (current_file == NULL);
+        fopen_s(&current_file, filename, "r");
         fseek(current_file, 0, SEEK_END);
         file_size = ftell(current_file);
         //int blocks = file_size/16/ (G);
         int blocks = 10;
-        char* buffer = (char*) malloc(file_size*2);
-        for (int i = 0; i < blocks*2;i++){
-            int x = randRightVersion()%10;
+        char *buffer = (char *) malloc(G);
+        for (int i = 0; i < blocks * 2; i++) {
+            int x = randRightVersion() % 10;
 
-            fseek(current_file,x%(blocks)*G,SEEK_SET);
-            fread(buffer+G*i,G,1,current_file);
-            for(int d = 0; d < G; d++){
+            fseek(current_file, x % (blocks) * G, SEEK_SET);
+            fread(buffer, G, 1, current_file);
+            for (int d = 0; d < G; d++) {
                 sum += buffer[d];
 
             }
         }
         fclose(current_file);
-        sum/=(G * blocks*2);  //avg
+        sum /= (G * blocks * 2);  
         printf("%d %.0f (0x%08x) random avg %s\n", params->id, sum, &sum, filename);
         free(buffer);
         sem_post(params->semaphore);
@@ -135,7 +129,6 @@ void *threadFileReader(void *funcParams) {
 }
 
 int main() {
-    randRightVersion();
 
     printf("Before memory allocation\n");
     getchar();
@@ -145,29 +138,28 @@ int main() {
         start = (int *) VirtualAlloc(NULL, A * 1024 * 1024, MEM_COMMIT, PAGE_READWRITE); 
     }
     printf("After memory allocation");
-    getchar(); //ждем символ
-    //выделение памяти под потоки
+    getchar(); 
     pthread_t *generators = (pthread_t *) VirtualAlloc(NULL, D * sizeof(pthread_t), MEM_COMMIT, PAGE_READWRITE);
     generatorParams *generatorsData = (generatorParams *) VirtualAlloc(NULL, D * sizeof(generatorParams), MEM_COMMIT,
                                                                        PAGE_READWRITE);
     pthread_t *writers = (pthread_t *) VirtualAlloc(NULL, 1 * sizeof(pthread_t), MEM_COMMIT, PAGE_READWRITE);
-    fileWriterParams *writersParams = (fileWriterParams *) VirtualAlloc(NULL,sizeof(fileWriterParams), MEM_COMMIT,
+    fileWriterParams *writersParams = (fileWriterParams *) VirtualAlloc(NULL, sizeof(fileWriterParams), MEM_COMMIT,
                                                                         PAGE_READWRITE);
     pthread_t *readers = (pthread_t *) VirtualAlloc(NULL, I * sizeof(pthread_t), MEM_COMMIT, PAGE_READWRITE);
-    fileReaderParams *readersParams = (fileReaderParams *) VirtualAlloc(NULL,I * sizeof(fileReaderParams), MEM_COMMIT,
+    fileReaderParams *readersParams = (fileReaderParams *) VirtualAlloc(NULL, I * sizeof(fileReaderParams), MEM_COMMIT,
                                                                         PAGE_READWRITE);
 
-    writersParams->filesNumber = A/E; 
-    if(A%E > 0)writersParams->filesNumber++;
+    writersParams->filesNumber = A / E;
+    if (A % E > 0)writersParams->filesNumber++;
 
-    sem_t *sems = (sem_t*)VirtualAlloc(NULL, writersParams->filesNumber*sizeof(sem_t), MEM_COMMIT, PAGE_READWRITE );
+    sem_t *sems = (sem_t *) VirtualAlloc(NULL, writersParams->filesNumber * sizeof(sem_t), MEM_COMMIT,
+                                         PAGE_READWRITE);
 
-    for(int i = 0; i < writersParams->filesNumber; i++) {
+    for (int i = 0; i < writersParams->filesNumber; i++) {
         sem_init(sems[i], 0, 0);
     }
     int *tmpointer = start;
     int amount = A * 1024 * 1024 / D / sizeof(int);
-    //Генераторы для разных кусков памяти
     for (int i = 0; i < D; i++) {
 
         generatorsData[i].memoryRegion = (char *) tmpointer;
@@ -179,15 +171,14 @@ int main() {
 
     writersParams->semaphore = &sems[0];
     writersParams->start = start;
-    for(int i = 0; i < I; i++){
-        readersParams[i].fileNumber = (i+1) % writersParams->filesNumber ;
+    for (int i = 0; i < I; i++) {
+        readersParams[i].fileNumber = (i + 1) % writersParams->filesNumber;
         readersParams[i].semaphore = &sems[readersParams[i].fileNumber];
         readersParams[i].id = i;
     }
     for (int i = 0; i < D; i++) {
         pthread_create(&generators[i], NULL, threadGenerator, &generatorsData[i]);
     }
-    //создание потков
     pthread_create(writers, NULL, threadFileWriter, writersParams);
     for (int i = 0; i < I; i++) {
         pthread_create(&readers[i], NULL, threadFileReader, &readersParams[i]);
@@ -209,5 +200,5 @@ int main() {
     VirtualFree(writersParams, 1 * sizeof(fileWriterParams), MEM_RELEASE);
     VirtualFree(readers, 1 * sizeof(pthread_t), MEM_RELEASE);
     VirtualFree(readersParams, 1 * sizeof(fileReaderParams), MEM_RELEASE);
-    VirtualFree(sems, I*sizeof(sem_t), MEM_RELEASE);
+    VirtualFree(sems, I * sizeof(sem_t), MEM_RELEASE);
 }
