@@ -9,13 +9,14 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <string.h>
 
 #define A 90
 #define D 109
 #define E 164
 #define G 13
 #define I 53
-FILE *URANDOM;
+FILE *urandom;
 int stop = 0;
 int exit_readers = 0;
 pthread_mutex_t mutex;
@@ -36,10 +37,10 @@ typedef struct {
     int number;
 } reader;
 
-char* seq_read(int fd, int fsize) {
+char* seq_read(int fd, unsigned int fsize) {
     char *buffer = (char *) malloc(fsize);
-    int blocks = fsize / G;
-    int last_block_size = fsize % G;
+    unsigned  int blocks = fsize / G;
+    unsigned int last_block_size = fsize % G;
     for (int i = 0; i < blocks; i++)
         pread(fd,buffer + G * i , G, G * i);
     if (last_block_size > 0)
@@ -57,12 +58,11 @@ void seq_write(void *ptr, int size, int n, int fd, int blksize) {
 
     for (int i = 0; i < blocks; i++) {
         char *buf_ptr = (char*) ptr + blksize * i;
-        for (int j = 0; j < blksize; j++)
-            buff[j] = buf_ptr[j];
+        memcpy(wbuff,buf_ptr,blksize);
 
         if (pwrite(fd, wbuff, blksize, blksize * i) < 0) {
             free((char *) buff);
-            printf("ошибка при записи\n");
+            fprintf(stderr,"ошибка при записи\n");
             return;
         }
     }
@@ -71,12 +71,10 @@ void seq_write(void *ptr, int size, int n, int fd, int blksize) {
 
 void *fill_area(void *thread_data) {
     generator *gen = (generator *) thread_data;
-    atomic_fetch_add(&started_to_fill, 1);
-    if (started_to_fill == D)
+    if (atomic_fetch_add(&started_to_fill, 1) == D - 1)
         printf("Область заполнена данными\n");
     do {
-        for (int i = 0; i < gen->size_of_mem; i++)
-            fread(&gen->start[i] , 4, 1, URANDOM);
+       fread(gen->start, 4, gen->size_of_mem, urandom);
     } while (!stop);
     return NULL;
 }
@@ -92,7 +90,7 @@ void *to_read(void *thread_data) {
         int file = open(fname, O_RDONLY, 00666);
         struct stat st;
         stat(fname, &st);
-        int file_size = st.st_size;
+        unsigned int file_size = st.st_size;
         int *buffer = (int*)seq_read(file, file_size);
         close(file);
         int max = INT_MIN;
@@ -103,8 +101,7 @@ void *to_read(void *thread_data) {
         pthread_mutex_unlock (&mutex);
         printf("READ %d освободил мьютекс\n", data->number);
     } while (!stop);
-    atomic_fetch_add(&exit_readers, 1);
-    printf("READ %d потоков завершились\n", exit_readers);
+    printf("READ %d потоков завершились\n",  atomic_fetch_add(&exit_readers, 1) + 1);
     return NULL;
 }
 void *to_write(void *thread_data) {
@@ -130,7 +127,7 @@ void *to_write(void *thread_data) {
 }
 
 int main() {
-    URANDOM = fopen("/dev/urandom", "r");
+    urandom = fopen("/dev/urandom", "r");
 
     printf("До аллокации");
     getchar();
@@ -165,14 +162,16 @@ int main() {
     for (int i = 0; i < I; i++)
         reader_data[i].number = i;
 
-    printf("Генерация данных запущена\n");
     for (int i = 0; i < D; i++)
         pthread_create(&(generator_threads[i]), NULL, fill_area, &generator_data[i]);
-    printf("Запись запущена\n");
+    printf("Генерация данных запущена\n");
+
     pthread_create(thread_writer, NULL, to_write, writer_data);
-    printf("Чтение запущено\n");
+    printf("Запись запущена\n");
+
     for (int i = 0; i < I; i++)
         pthread_create(&(reader_threads[i]), NULL, to_read, &reader_data[i]);
+    printf("Чтение запущено\n");
 
     getchar();
     stop = 1;
@@ -184,7 +183,7 @@ int main() {
     for (int i = 0; i < I; i++)
         pthread_join(reader_threads[i], NULL);
     printf("Чтение прекращено\n");
-    fclose(URANDOM);
+    fclose(urandom);
     free(generator_threads);
     free(generator_data);
     free(thread_writer);
