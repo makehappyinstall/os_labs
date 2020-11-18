@@ -91,14 +91,10 @@ _Noreturn void* thread_wif(void * thread_wif_args){
     while(1) write_in_file(args->src, args->file_number, args->mutex, args->cv);
 }
 
-int convert_char_buf_2_int(unsigned char buf[]){
+int convert_char_buf_2_int(unsigned char *begin, unsigned char *end){
     int sum = 0;
-    for (int i = 0; i < G / sizeof (int); i+=sizeof (int)){
-        int num = 0;
-        for (int j = 0; j < sizeof (int); j++){
-            num = (num<<8) + buf[i+j];
-        }
-        sum += num;
+    for (int * i = (int*) begin; i != (int*) end; i+=1){
+        sum += *i;
     }
     return sum;
 }
@@ -118,7 +114,7 @@ _Noreturn void* read_and_sum(void * ras_data){
         unsigned char buf[G];
         for (unsigned int i = 0; i < 2*E*1024*1024/G; i++){
             if (fread(&buf, 1, G, file) != G) continue;
-            else sum+=convert_char_buf_2_int(buf);
+            else sum+=convert_char_buf_2_int(&buf[0], &buf[G]);
         }
         printf("%d: %lld\n", f_n, sum);
         fclose(file);
