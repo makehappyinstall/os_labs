@@ -25,8 +25,8 @@ struct memory_filler_data {
 };
 
 void* memory_filler_thread(void* in_thread_data) {
-	struct memory_filler_data thread_data = *(struct memory_filler_data*) in_thread_data;
-	fread(thread_data.address, thread_data.part_length, 1, thread_data.random_file);
+	struct memory_filler_data* thread_data = (struct memory_filler_data*) in_thread_data;
+	fread(thread_data->address, thread_data->part_length, 1, thread_data->random_file);
 	free(in_thread_data);
 	pthread_exit(NULL);
 }
@@ -57,11 +57,6 @@ _Noreturn void* file_aggregator_thread() {
 }
 
 void fill_memory(void* memory_address, size_t memory_size) {
-
-	//before allocation
-
-	mmap(memory_address, memory_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-
 	//after allocation
 
 	FILE* random_file = fopen("/dev/urandom", "r");
@@ -89,7 +84,13 @@ void fill_memory(void* memory_address, size_t memory_size) {
 
 void fill_file_from_memory(void* memory_address, size_t data_length, char* filename) {
 	FILE* output_file = fopen(filename, "w");
-	fwrite(memory_address, G, data_length / G + 1, output_file);
+	fwrite(memory_address, G, data_length / G, output_file);
+
+	if (data_length % G != 0) {
+		fwrite((char*) memory_address + data_length - data_length % G,
+				1, data_length % G, output_file);
+	}
+
 	fclose(output_file);
 }
 
@@ -98,16 +99,19 @@ void* fill_memory_write_file() {
 	unsigned long long created_files_count = 0;
 	while (1) {
 		//    for (int i = 0; i < file_number; ++i) {
-		fill_memory(B, A);
+		//before allocation
+		 void* memory_start = mmap(B, A, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+
+		fill_memory(memory_start, A);
 		char* filename = malloc(20 * sizeof(char));
 		sprintf(filename, "%llu", created_files_count);
 		printf("Current file: %s\n", filename);
-		fill_file_from_memory(B, E, filename);
+		fill_file_from_memory(memory_start, E, filename);
 
 		created_files_count++;
 		sem_post(&files_semaphore);
 
-		munmap(page_aligned_B, A);
+		munmap(memory_start, A);
 		free(filename);
 
 		// after deallocating
