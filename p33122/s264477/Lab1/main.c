@@ -100,7 +100,6 @@ void write_memory_to_file(int file_number, uint size, void *memory_point){
         //if (i % 100 == 0)
         //   printf("Записано %d из %d блоков\n", i, block_amount);
         ssize_t current_bytes = write(file, current_point, size_of_current_block);
-        fflush(stdout);
 
         if (current_bytes == -1){
             printf("Ошибка при записи в файл.\n");
