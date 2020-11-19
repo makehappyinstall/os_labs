@@ -1,0 +1,32 @@
+global read, write, start, open, close
+
+probe begin {
+   start = gettimeofday_s()
+}
+probe syscall.write {
+   if (pid() == target())
+   	write += 1
+}
+
+probe syscall.read {
+   if (pid() == target())
+   	read += 1
+}
+
+probe syscall.open {
+   if (pid() == target())
+   	open += 1
+}
+
+probe syscall.close {
+   if (pid() == target())
+   	close += 1
+}
+
+probe timer.ms(100) {
+   printf("%d\t%d\t%d\t%d\t%16d\n", read, write, open, close, task_stime())
+   read=0
+   write=0
+   open = 0
+   close = 0
+}
