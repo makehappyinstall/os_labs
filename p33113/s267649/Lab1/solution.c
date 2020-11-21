@@ -36,11 +36,11 @@ void* regionPtr; // Указатель на область в памяти, ко
 int randomFd; // Дескриптор файла /dev/urandom
 void* fillThreadHandler(void* vargPtr) { // Это функция, которая выполнится в отдельном потоке
     int chunkSize = MMAP_LENGTH/FILL_THREADS; // Сколько этот поток должен записать (84 МБ / 127 потоков = ~661 Кб на поток)
-    int threadIndex = *(int*)vargPtr; // Индекс этого потока (0, 1, 2...)
+    const int threadIndex = (int)vargPtr; // Индекс этого потока (0, 1, 2...)
     void* ptrStart = regionPtr + threadIndex * chunkSize; // Место, откуда надо начать записывать
 
     // При делении области памяти на количество потоков результат обрезается, поэтому последний поток пишет на несколько байт больше, чтобы восстановить пробел
-    if (*(int*)vargPtr == FILL_THREADS - 1) // Этот поток заполняет последнюю часть(надеюсь)
+    if (threadIndex == FILL_THREADS - 1) // Этот поток заполняет последнюю часть(надеюсь)
         chunkSize += MMAP_LENGTH - MMAP_LENGTH/FILL_THREADS*FILL_THREADS;
 
     // Чтение из /dev/urandom в указанную область памяти
@@ -72,11 +72,9 @@ void generateData() {
     }
 
     pthread_t threads[FILL_THREADS]; // Массив потоков (нужно, чтобы потом сделать join)
-    int threadArg[FILL_THREADS]; // Буфер, с помощью которого передаются аргументы в новые потоки
 
     for (int i = 0; i < FILL_THREADS; i++) {
-        threadArg[i] = i;
-        pthread_create(&threads[i], 0, fillThreadHandler, &threadArg[i]); // Функция fillThreadHandler вызывается с нового потока
+        pthread_create(&threads[i], 0, fillThreadHandler, (void*) i); // Функция fillThreadHandler вызывается с нового потока
     }
 
     printf("Ожидание завершения потоков...\n");
@@ -86,20 +84,6 @@ void generateData() {
 
     close(randomFd);
     printf("Область памяти заполнена\n");
-}
-
-void writeData() {
-    printf("Запись данных из памяти в файлы...\n");
-
-    for (int i = 0; i < FILES_NUMBER; i++) {
-        char fileName[] = {'0' + i, '\0'}; // Имя файла
-
-        int actualSize = FILE_SIZE;
-        if (i == FILES_NUMBER - 1) // У последнего файла размер может оказаться немного меньше
-            actualSize = MMAP_LENGTH - FILE_SIZE*(FILES_NUMBER - 1);
-
-        writeSingleFile(fileName, regionPtr + FILE_SIZE * i, actualSize);
-    }
 }
 
 void writeSingleFile(char* fileName, void* start, int size) {
@@ -144,6 +128,20 @@ void writeSingleFile(char* fileName, void* start, int size) {
     close(fd);
     printf("%c[2K", 27);
     printf("Файл записался!\n");
+}
+
+void writeData() {
+    printf("Запись данных из памяти в файлы...\n");
+
+    for (int i = 0; i < FILES_NUMBER; i++) {
+        char fileName[] = {'0' + i, '\0'}; // Имя файла
+
+        int actualSize = FILE_SIZE;
+        if (i == FILES_NUMBER - 1) // У последнего файла размер может оказаться немного меньше
+            actualSize = MMAP_LENGTH - FILE_SIZE*(FILES_NUMBER - 1);
+
+        writeSingleFile(fileName, regionPtr + FILE_SIZE * i, actualSize);
+    }
 }
 
 void freeData() {
