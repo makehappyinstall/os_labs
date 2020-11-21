@@ -21,6 +21,7 @@
 #define DUMP_FILE_SIZE  45
 #define DATA_BLOCK_SIZE 11
 #define COUNTERS_THREAD_AMOUNT 11 
+#define WORD_SIZE 8
 
 struct threadFuncArg {
     void * writeAddr;
@@ -80,7 +81,7 @@ fmem(void *addr, size_t size, int logEnabled)
         
         arg = malloc(sizeof(arg));
         arg->size = size / THREADS_AMOUNT;
-        arg->writeAddr = (uint8_t*)mmapAddr + i * ((arg->size / 8) + (arg->size % 8 > 0 ? 1 : 0));
+        arg->writeAddr = (uint8_t*)mmapAddr + i * ((arg->size / WORD_SIZE) + (arg->size % WORD_SIZE > 0 ? 1 : 0));
         arg->dataSource = fopen("/dev/urandom", "r");
         arg->logEnabled = logEnabled;
         err = pthread_create(&threads[i], NULL, threadFunc, arg);
@@ -254,8 +255,8 @@ int main()
 
     munmap(mmapAddr, fillMemSize);
 
-    // just for in-app monitor
-    // of course, we can make an additional monitor outside
+	// just for in-app monitor
+	// of course, we can make an additional monitor outside
     fprintf(stderr, "\nAfter deallocation");
     systemFree();
 
@@ -286,7 +287,7 @@ int main()
 
         args->dumpMap[i] = malloc(sizeof(struct memoryDumpMap));
         args->dumpMap[i]->fd = files[i];
-        args->dumpMap[i]->addr = (uint8_t*) memoryAddr + i * (dumpMemSize / 8);
+        args->dumpMap[i]->addr = (uint8_t*) memoryAddr + i * (dumpMemSize / WORD_SIZE);
         args->dumpMap[i]->size = dumpMemSize;
 
         const int shm_id = shmget(IPC_PRIVATE, 4096, IPC_CREAT | 0666);
@@ -324,7 +325,7 @@ int main()
 
 
     fprintf(stderr, "Unlocking all blocks...\n");
-    
+
     for (size_t i = 0; i < filesAmount; i++) {
         int * futex = args->dumpMap[i]->futex;
         wakeFutexBlocking(futex, 1);
