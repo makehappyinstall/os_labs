@@ -17,10 +17,11 @@
 #define READ_THREADS_COUNT 17 //I
 //в последнем файле будет меньше данных
 #define COUNT_OF_FILES ((MEMORY_SIZE/1000000)/(FILE_SIZE/1000000) + (MEMORY_SIZE % FILE_SIZE != 0 ? 1 : 0))
+#define A_CODE 97
 
 long get_min(const int *readArray, u_long size);
 
-long get_average(const int *readArray, int size);
+long get_average(const int *readArray, u_long size);
 
 void start_reading_random_threads();
 
@@ -85,7 +86,7 @@ void start_write() {
     for (int i = 0; i < COUNT_OF_FILES; i++) {
 
         char *p_start = ((char *) array) + i * FILE_SIZE;
-        char id[] = {(char) (97 + i), '\0'};
+        char id[] = {(char) (A_CODE + i), '\0'};
 
         //размер данных, которые запишутся в файл
         int size = FILE_SIZE;
@@ -159,7 +160,7 @@ long get_min(const int *readArray, u_long size) {
     return min;
 }
 
-long get_average(const int *readArray, int size) {
+long get_average(const int *readArray, u_long size) {
     long average = 0;
 
     for (int i = 0; i < size; i++) {
@@ -192,8 +193,10 @@ void *threadReadingFunc() {
         int file = open(id, O_RDONLY);
         read(file, readInfo, size);
 
-        int *readArray = (int *) readInfo;
-        long min = get_min(readArray, size / sizeof(int));
+//        int *readArray = (int *) readInfo;
+//        long min = get_min(readArray, size / sizeof(int));
+
+        long min = get_min(readInfo, size / sizeof(int));
 
         printf("Минимальное значение %ld", min);
         printf("\n");
