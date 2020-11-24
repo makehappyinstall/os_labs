@@ -130,6 +130,7 @@ _Noreturn void* readFile(void* props) {
         pthread_mutex_lock(args->mutex);
         printf("Waiting on cv %s \n", fileName);
         pthread_cond_wait(args->cv, args->mutex);
+        printf("Waiting complete for cv on %s \n", fileName);
         FILE* file = fopen(fileName, "rb");
         unsigned char buf[IO_BUFFER_SIZE_B];
         int file_size = FILES_SIZE_MB * 1024 * 1024;
