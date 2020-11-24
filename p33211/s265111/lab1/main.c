@@ -16,11 +16,11 @@
 typedef struct {
     FILE* src;
     int length;
-    unsigned char* start;
+    char* start;
 } WriteInMemoryProps;
 
 typedef struct {
-    unsigned char* src;
+    char* src;
     char* fileName;
     pthread_mutex_t* mutex;
     pthread_cond_t* cv;
@@ -34,7 +34,7 @@ typedef struct {
 
 void* writeInMemory(void* props) {
     WriteInMemoryProps* data = props;
-    unsigned char* start = data->start;
+    char* start = data->start;
     int length = data->length;
     FILE* src = data->src;
     size_t i = 0;
@@ -45,31 +45,34 @@ void* writeInMemory(void* props) {
 }
 
 //writing data from /dev/urandom in memory beginning from start address
-void writeInMemoryFromUrandom(unsigned char* startAddress) {
+void writeInMemoryFromUrandom(char* startAddress) {
     FILE* urandom = fopen("/dev/urandom", "r");
 
-    int wrn_part = ALLOCATED_MEMORY_SIZE_MB * 1024 * 1024 / WRITE_IN_MEMORY_THREADS_CNT;
+    int offset = 0;
+    int writePart = ALLOCATED_MEMORY_SIZE_MB * 1024 * 1024 / WRITE_IN_MEMORY_THREADS_CNT;
 
     pthread_t writeInMemoryThreads[WRITE_IN_MEMORY_THREADS_CNT];
 
     for (int i = 0; i < WRITE_IN_MEMORY_THREADS_CNT - 1; i++) {
         WriteInMemoryProps* props = malloc(sizeof(WriteInMemoryProps));
         props->start = startAddress;
-        props->length = wrn_part;
+        props->length = writePart;
         props->src = urandom;
         pthread_create(&(writeInMemoryThreads[i]), NULL, writeInMemory, props);
-        startAddress += wrn_part;
+        startAddress += writePart;
+        offset += writePart;
     }
 
     WriteInMemoryProps* lastThreadProps = malloc(sizeof(WriteInMemoryProps));
     lastThreadProps->start = startAddress;
-    lastThreadProps->length = wrn_part + ALLOCATED_MEMORY_SIZE_MB * 1024 * 1024 % WRITE_IN_MEMORY_THREADS_CNT;
+    lastThreadProps->length = writePart + ALLOCATED_MEMORY_SIZE_MB * 1024 * 1024 % WRITE_IN_MEMORY_THREADS_CNT;
     lastThreadProps->src = urandom;
+    offset += lastThreadProps->length;
     pthread_create(&(writeInMemoryThreads[WRITE_IN_MEMORY_THREADS_CNT - 1]), NULL, writeInMemory, lastThreadProps);
 
     for (int i = 0; i < WRITE_IN_MEMORY_THREADS_CNT; i++)
         pthread_join(writeInMemoryThreads[i], NULL);
-
+    startAddress -= offset;
     fclose(urandom);
 }
 
@@ -83,7 +86,7 @@ double generateRandom() {
     return (double)rand() / (double)RAND_MAX ;
 }
 
-void writeInFile(unsigned char* src, char* fileName, pthread_mutex_t* mutex, pthread_cond_t* cv) {
+void writeInFile(char* src, char* fileName, pthread_mutex_t* mutex, pthread_cond_t* cv) {
     pthread_mutex_lock(mutex);
     FILE* file = fopen(fileName, "wb");
     int file_size = FILES_SIZE_MB * 1024 * 1024;
@@ -149,7 +152,7 @@ _Noreturn void* readFile(void* props) {
     }
 }
 
-unsigned char* allocate_memory() {
+char* allocate_memory() {
     return mmap((void* ) START_ADDRESS, ALLOCATED_MEMORY_SIZE_MB * 1024 * 1024, PROT_READ | PROT_WRITE,
                 MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 }
@@ -157,7 +160,7 @@ unsigned char* allocate_memory() {
 void allocateDeallocateMemory() {
     printf("Before memory allocation.");
     getchar();
-    unsigned char* allocatedStartAddress = allocate_memory();
+    char* allocatedStartAddress = allocate_memory();
     printf("After memory allocation.");
     getchar();
     writeInMemoryFromUrandom(allocatedStartAddress);
@@ -178,7 +181,7 @@ char* getFileNameByNumber(int fileNumber) {
 int main() {
     allocateDeallocateMemory();
 
-    unsigned char* allocatedStartAddress = allocate_memory();
+    char* allocatedStartAddress = allocate_memory();
 
     const unsigned int filesCnt = ALLOCATED_MEMORY_SIZE_MB / FILES_SIZE_MB + 1;
     pthread_mutex_t mutexes[filesCnt];
@@ -204,21 +207,21 @@ int main() {
     pthread_t writeInMemory;
     pthread_create(&writeInMemory, NULL, infiniteGenerating, allocatedStartAddress);
 
-    pthread_t fileThreads[filesCnt];
+    pthread_t writeThreads[filesCnt];
     for (int i = 0; i < filesCnt; i++) {
         WriteInFileProps* props = malloc(sizeof(WriteInFileProps));
         props->src = allocatedStartAddress;
         props->fileName = getFileNameByNumber(i);
         props->mutex = &(mutexes[i]);
         props->cv = &(cvs[i]);
-        pthread_create(&fileThreads[i], NULL, writeFromMemoryToFile, props);
+        pthread_create(&writeThreads[i], NULL, writeFromMemoryToFile, props);
     }
 
     for (int i = 0; i < READ_FILES_THREADS_CNT; i++)
         pthread_join(readThreads[i], NULL);
     pthread_join(writeInMemory, NULL);
     for (int i = 0; i < filesCnt; i++) {
-        pthread_join(fileThreads[i], NULL);
+        pthread_join(writeThreads[i], NULL);
     }
 
     return 0;
