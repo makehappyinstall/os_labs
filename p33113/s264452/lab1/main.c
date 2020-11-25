@@ -20,7 +20,7 @@
 #define FILL_MEM_SIZE   118
 #define DUMP_FILE_SIZE  45
 #define DATA_BLOCK_SIZE 11
-#define COUNTERS_THREAD_AMOUNT 11 
+#define COUNTERS_THREAD_AMOUNT 11
 #define WORD_SIZE 8
 
 struct threadFuncArg {
@@ -44,12 +44,13 @@ threadFunc(void *restrictArg)
 }
 
 void
-systemFree() {
+systemFree()
+{
     system("free 1>&2");
     fprintf(stderr, "\n");
 }
 
-/* 
+/*
  * Fills memory with mmap function.
  *
  * addr - pointer to fill address (may not equal to return pointer)
@@ -61,14 +62,14 @@ fmem(void *addr, size_t size, int logEnabled)
 {
 
     int err;
-    
+
     if (logEnabled) {
         fprintf(stderr, "\nBefore allocation:");
         systemFree();
     }
 
     void * mmapAddr = mmap(addr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-    
+
     if (logEnabled) {
         fprintf(stderr, "\nAfter allocation: ");
         systemFree();
@@ -76,9 +77,9 @@ fmem(void *addr, size_t size, int logEnabled)
 
     pthread_t threads [THREADS_AMOUNT] ;
     struct threadFuncArg * arg;
-    
+
     for (size_t i = 0; i < THREADS_AMOUNT; i++) {
-        
+
         arg = malloc(sizeof(arg));
         arg->size = size / THREADS_AMOUNT;
         arg->writeAddr = (uint8_t*)mmapAddr + i * ((arg->size / WORD_SIZE) + (arg->size % WORD_SIZE > 0 ? 1 : 0));
@@ -86,19 +87,17 @@ fmem(void *addr, size_t size, int logEnabled)
         arg->logEnabled = logEnabled;
         err = pthread_create(&threads[i], NULL, threadFunc, arg);
 
-        if (err != 0)
-        {
+        if (err != 0) {
             fprintf(stderr, "Error with creating thread");
             exit(err);
         }
-   
+
     }
-    
+
     for (size_t i = 0; i < THREADS_AMOUNT; i++) {
         err = pthread_join(threads[i], NULL);
 
-        if (err != 0)
-        {
+        if (err != 0){
             exit(err);
         }
     }
@@ -106,15 +105,16 @@ fmem(void *addr, size_t size, int logEnabled)
     if (logEnabled) {
         fprintf(stderr, "\nAfter filling: ");
         systemFree();
-    
+
         fprintf(stderr, "Compare mmap returned addr: %p and map addr: %p \n", mmapAddr, addr);
     }
 
     return mmapAddr;
 }
 
-int futex(int* uaddr, int futex_op, int val) {
-      return syscall(SYS_futex, uaddr, futex_op, val, NULL, NULL, 0);
+int futex(int* uaddr, int futex_op, int val)
+{
+    return syscall(SYS_futex, uaddr, futex_op, val, NULL, NULL, 0);
 }
 
 void waitOnFutexValue(int* futex_addr, int val) {
@@ -144,7 +144,6 @@ dumpMem(const int fd, const void * addr, const int size, int * futex) {
 
     size_t iterations = size / DATA_BLOCK_SIZE;
     int tenPercent = iterations / 10;
-    int errno;
     int res = ftruncate(fd, 0);
     if (res == -1) {
         fprintf(stderr, "truncate : %d\n", errno);
@@ -200,17 +199,17 @@ aggregateFile(const struct memoryDumpMap * args) {
     waitOnFutexValue(futex, 0);
     *futex = 0;
     uint64_t sum = 0;
-    
+
     if (lseek(args->fd, 0, SEEK_SET) == -1) {
         return -1;
     }
 
     unsigned char buf [DATA_BLOCK_SIZE];
-    
+
     while(1) {
-        
+
         size_t readBytes = read(args->fd, &buf, DATA_BLOCK_SIZE);
-        
+
         if (readBytes == -1) {
             perror("Error file read");
             break;
@@ -247,7 +246,7 @@ readFileFunc(void * arg) {
 
 int main()
 {
-	// Memory allocation operations
+    // Memory allocation operations
 
     const int fillMemSize = FILL_MEM_SIZE * 1024 * 1024;
     fprintf(stderr, "\nAllocating memory with mmap function");
@@ -255,17 +254,17 @@ int main()
 
     munmap(mmapAddr, fillMemSize);
 
-	// just for in-app monitor
-	// of course, we can make an additional monitor outside
+    // just for in-app monitor
+    // of course, we can make an additional monitor outside
     fprintf(stderr, "\nAfter deallocation");
     systemFree();
 
 
-	
-	// Dump memory to files and aggregate them in separate threads with futex   
+
+    // Dump memory to files and aggregate them in separate threads with futex
 
     const void * memoryAddr = fmem((void *) ALLOC_ADDR, FILL_MEM_SIZE, false);
-    
+
     const size_t dumpMemSize = DUMP_FILE_SIZE * 1024 * 1024;
     const size_t filesAmount = fillMemSize / dumpMemSize + (fillMemSize % dumpMemSize > 0 ? 1 : 0);
 
@@ -293,8 +292,8 @@ int main()
         const int shm_id = shmget(IPC_PRIVATE, 4096, IPC_CREAT | 0666);
         args->dumpMap[i]->futex = shmat(shm_id, NULL, 0);
     }
-   
-    
+
+
     pthread_t memDumpTP;
     pthread_attr_t * memDTA = malloc(sizeof(pthread_attr_t));
     struct sched_param * memDP = malloc(sizeof(struct sched_param));
@@ -304,17 +303,17 @@ int main()
     pthread_create(&memDumpTP, NULL, dumpMemThreadFunc, args);
 
     fprintf(stderr, "Write-thread created...\n");
-    
+
     fprintf(stderr, "Creating aggregator-threads\n");
 
     pthread_t counters[COUNTERS_THREAD_AMOUNT];
-     
+
     pthread_attr_t * memAttr = malloc(sizeof(pthread_attr_t));
     struct sched_param * memSP = malloc(sizeof(struct sched_param));
     pthread_attr_setschedparam(memAttr, memSP);
 
     for (size_t i = 0; i < COUNTERS_THREAD_AMOUNT; i++) {
-        counters[i] = pthread_create(&counters[i], NULL, readFileFunc, args); 
+        counters[i] = pthread_create(&counters[i], NULL, readFileFunc, args);
     }
 
     fprintf(stderr, "Created %d aggregator-threads\n", COUNTERS_THREAD_AMOUNT);
