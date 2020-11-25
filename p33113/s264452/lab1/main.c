@@ -76,16 +76,14 @@ fmem(void *addr, size_t size, int logEnabled)
     }
 
     pthread_t threads [THREADS_AMOUNT] ;
-    struct threadFuncArg * arg;
-
+    struct threadFuncArg *args = (struct threadFuncArg *) malloc(sizeof(struct threadFuncArg) * THREADS_AMOUNT);
     for (size_t i = 0; i < THREADS_AMOUNT; i++) {
 
-        arg = malloc(sizeof(arg));
-        arg->size = size / THREADS_AMOUNT;
-        arg->writeAddr = (uint8_t*)mmapAddr + i * ((arg->size / WORD_SIZE) + (arg->size % WORD_SIZE > 0 ? 1 : 0));
-        arg->dataSource = fopen("/dev/urandom", "r");
-        arg->logEnabled = logEnabled;
-        err = pthread_create(&threads[i], NULL, threadFunc, arg);
+        args[i].size = size / THREADS_AMOUNT;
+        args[i].writeAddr = (uint8_t*)mmapAddr + i * ((args[i].size / WORD_SIZE) + (args[i].size % WORD_SIZE > 0 ? 1 : 0));
+        args[i].dataSource = fopen("/dev/urandom", "r");
+        args[i].logEnabled = logEnabled;
+        err = pthread_create(&threads[i], NULL, threadFunc, &args[i]);
 
         if (err != 0) {
             fprintf(stderr, "Error with creating thread");
@@ -97,7 +95,7 @@ fmem(void *addr, size_t size, int logEnabled)
     for (size_t i = 0; i < THREADS_AMOUNT; i++) {
         err = pthread_join(threads[i], NULL);
 
-        if (err != 0){
+        if (err != 0) {
             exit(err);
         }
     }
