@@ -4,14 +4,14 @@ CC_ARGS=-Wall -Wpedantic -Werror
 
 all: main.o
 
-run: main.o
-	./main.o
+run: main
+	./main
 
 run-silent: main.o
 	./main.o 2>/dev/null
 
-main.o : main.c
-	$(CC) $(CC_ARGS) -Wall -Wpedantic -Werror -o main.o main.c -pthread -lm
+main : main.c
+	$(CC) $(CC_ARGS) -Wall -Wpedantic -Werror -o main main.c -pthread -lm
 
 
 
