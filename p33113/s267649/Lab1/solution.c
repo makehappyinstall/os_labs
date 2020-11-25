@@ -183,7 +183,7 @@ void analyzeFile(char* fileName) {
     lseek(fd, 0, SEEK_SET);
 
     // Выделаем в памяти место под содержимое файла
-    __uint64_t* data = (__uint64_t*) malloc(size);
+    __uint8_t* data = (__uint8_t*) malloc(size);
     // Читаем файл в память целиком
     ssize_t readBytes = read(fd, data, size);
 
@@ -191,13 +191,13 @@ void analyzeFile(char* fileName) {
     close(fd);
 
     // Ищем минимальное 8-байтовое беззнаковое число в файле
-    __uint64_t min = data[0];
-    for (size_t i = 1; i < readBytes/sizeof(__uint64_t); i += 1) {
+    __uint8_t min = data[0];
+    for (size_t i = 1; i < readBytes/sizeof(__uint8_t); i += 1) {
         if (data[i] < min)
             min = data[i];
     }
 
-    printf("%c[2K\033[2;49;37mАнализ: Минимальное 8-байтовое беззнаковое число в файле '%s' - %ld\033[0m\n", 27, fileName, min);
+    printf("%c[2K\033[2;49;37mАнализ: Минимальное 8-байтовое беззнаковое число в файле '%s' - %d\033[0m\n", 27, fileName, min);
 
     free(data);
 }
