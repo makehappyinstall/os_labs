@@ -16,7 +16,8 @@ main.o : main.c
 
 
 # Clean functions
-#
+# ---------------
+
 # clean all
 clean:
 	make cbin cdump
@@ -28,3 +29,4 @@ cbin:
 # clean mememory dumps
 cdump:
 	find . -type f -name 'dump.*' -delete
+
