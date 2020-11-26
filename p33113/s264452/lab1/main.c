@@ -161,7 +161,7 @@ void
 counter(unsigned int times) {
     for (size_t i = times; i > 0; i--) {
         fprintf(stderr, "...%ld\n", i);
-        sleep(0.2);
+        sleep(1);
     }
 }
 
@@ -313,7 +313,7 @@ int main()
 
     fprintf(stderr, "Created %d aggregator-threads\n", COUNTERS_THREAD_AMOUNT);
 
-    const int times = 3;
+    const int times = 10;
     fprintf(stderr, "Unlocking all blocks after %d seconds\n", times);
     counter(times);
 
