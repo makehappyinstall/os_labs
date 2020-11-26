@@ -44,7 +44,7 @@ void *address_del;
 
 int main(int argc, char **argv) {
 
-	if(argc > 1) {
+  if(argc > 1) {
   signal(SIGINT, i_signal);
   }
 
@@ -144,6 +144,7 @@ void read_from_memory_to_file(FILE *file, void *memory_pointer) {
 
 uint64_t thread_init_for_read(void) {
   pthread_t threads_id[READ_THREAD_NUM];
+  struct thread_args t_args[READ_THREAD_NUM];
   uint64_t size = 2 * FILE_SIZE / READ_THREAD_NUM;
   uint64_t offset = 0;
   FILE *file_1 = fopen("./res/file_1", "rb");
@@ -153,24 +154,19 @@ uint64_t thread_init_for_read(void) {
     exit(1);
   }
   for (uint8_t i = 0; i < READ_THREAD_NUM - 1; i += 2) {
-    struct thread_args *args_1 =
-        (struct thread_args *)malloc(sizeof(struct thread_args));
-    struct thread_args *args_2 =
-        (struct thread_args *)malloc(sizeof(struct thread_args));
+    t_args[i].file_d = file_1;
+    t_args[i + 1].file_d = file_2;
 
-    args_1->file_d = file_1;
-    args_2->file_d = file_2;
+    t_args[i].size = size;
+    t_args[i + 1].size = size;
 
-    args_1->size = size;
-    args_2->size = size;
-
-    args_1->offset = offset;
-    args_2->offset = offset;
+    t_args[i].offset = offset;
+    t_args[i + 1].offset = offset;
 
     offset += size;
 
-    pthread_create(&threads_id[i], NULL, func_sum, args_1);
-    pthread_create(&threads_id[i + 1], NULL, func_sum, args_2);
+    pthread_create(&threads_id[i], NULL, func_sum,  &t_args[i]);
+    pthread_create(&threads_id[i + 1], NULL, func_sum, &t_args[i + 1]);
   }
 
   void *res = malloc(sizeof(uint64_t) * READ_THREAD_NUM);
@@ -194,7 +190,7 @@ void *func_sum(void *th_args) {
   sem_wait(&mutex);
   readers++;
   if(readers == 1) {
-  	sem_wait (&resourse);
+    sem_wait (&resourse);
   }
   sem_post(&mutex);
 
