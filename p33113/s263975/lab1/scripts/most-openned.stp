@@ -1,0 +1,22 @@
+#! /usr/bin/env stap
+
+probe begin {
+	printf("[most-opened] Started\n");
+}
+
+global files
+
+// glibc translating open() to openat syscall :/
+probe syscall.openat {
+	if (pid() == target()) {
+		printf("%s(%d) open %s\n", execname(), pid(), filename) //argstr
+		files[filename] <<< 1
+	}
+}
+
+probe end {
+	printf("[most-opened] File open counts:\n");
+	foreach ([file] in files-) {
+		printf("%s - %d\n", file, @count(files[file]));
+	}
+}
