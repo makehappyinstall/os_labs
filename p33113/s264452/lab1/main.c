@@ -135,9 +135,8 @@ void wakeFutexBlocking(int* futex_addr, int val) {
  * Dump memory to provided file descriptor
  */
 void
-dumpMem(const int fd, const void * addr, const int size, int * futex) {
+dumpMem(const int fd, const void * addr, const size_t size, int * futex) {
     waitOnFutexValue(futex, 0);
-    *futex = 0;
     fprintf(stderr, "Dump memory to %d\t from %p \t[size=%.2f MB]\n", fd, addr, size / (1024.0 * 1024.0));
 
     size_t iterations = size / DATA_BLOCK_SIZE;
@@ -155,14 +154,14 @@ dumpMem(const int fd, const void * addr, const int size, int * futex) {
         write(fd, &pointer, DATA_BLOCK_SIZE);
     }
 
-    *futex = 1;
+    wakeFutexBlocking(futex, 1);
 }
 
 void
 counter(unsigned int times) {
     for (size_t i = times; i > 0; i--) {
         fprintf(stderr, "...%ld\n", i);
-        sleep(1);
+        sleep(0.2);
     }
 }
 
@@ -195,7 +194,7 @@ int
 aggregateFile(const struct memoryDumpMap * args) {
     int * futex = args->futex;
     waitOnFutexValue(futex, 0);
-    *futex = 0;
+    
     uint64_t sum = 0;
 
     if (lseek(args->fd, 0, SEEK_SET) == -1) {
@@ -226,8 +225,7 @@ aggregateFile(const struct memoryDumpMap * args) {
 
     fprintf(stderr, "Calculated sum on file [%d]:\t %lu\n", args->fd, sum);
 
-    *futex = 1;
-
+    wakeFutexBlocking(futex, 1);
     return 0;
 }
 
@@ -237,7 +235,7 @@ readFileFunc(void * arg) {
     while(1) {
         int index = rand() % dumpArg->filesAmount;
         aggregateFile(dumpArg->dumpMap[index]);
-        sleep(1);
+        sleep(0.4);
     }
 }
 
@@ -299,7 +297,6 @@ int main()
 
     pthread_attr_setschedparam(memDTA, memDP);
     pthread_create(&memDumpTP, NULL, dumpMemThreadFunc, args);
-
     fprintf(stderr, "Write-thread created...\n");
 
     fprintf(stderr, "Creating aggregator-threads\n");
