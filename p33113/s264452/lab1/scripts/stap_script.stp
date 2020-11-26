@@ -1,6 +1,7 @@
 global read, write, start, open, close
 
 probe begin {
+   printf("Starting probe...");
    start = gettimeofday_s()
 }
 probe syscall.write {
@@ -14,8 +15,10 @@ probe syscall.read {
 }
 
 probe syscall.open {
-   if (pid() == target())
-   	open += 1
+   if (pid() == target()) {
+        open += 1
+        printf ("%s(%d) open\n", execname(), pid())
+   }
 }
 
 probe syscall.close {

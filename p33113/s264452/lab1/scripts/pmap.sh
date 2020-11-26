@@ -1,3 +1,3 @@
 #!/bin/bash
-pid="$(ps -ef | grep "main.o" | grep -v grep | awk '{print $2}')"
+pid="$(ps -ef | grep "main" | grep -v grep | awk '{print $2}')"
 sudo pmap -x $pid > pmap.output
