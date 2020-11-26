@@ -284,9 +284,7 @@ int main()
         args->dumpMap[i]->fd = files[i];
         args->dumpMap[i]->addr = (uint8_t*) memoryAddr + i * (dumpMemSize / WORD_SIZE);
         args->dumpMap[i]->size = dumpMemSize;
-
-        const int shm_id = shmget(IPC_PRIVATE, 4096, IPC_CREAT | 0666);
-        args->dumpMap[i]->futex = shmat(shm_id, NULL, 0);
+        args->dumpMap[i]->futex = malloc(sizeof(int));
     }
 
 
@@ -301,19 +299,19 @@ int main()
 
     fprintf(stderr, "Creating aggregator-threads\n");
 
-    pthread_t counters[COUNTERS_THREAD_AMOUNT];
+    pthread_t *counters = (pthread_t *) malloc(sizeof(pthread_t) * COUNTERS_THREAD_AMOUNT);
 
     pthread_attr_t * memAttr = malloc(sizeof(pthread_attr_t));
     struct sched_param * memSP = malloc(sizeof(struct sched_param));
     pthread_attr_setschedparam(memAttr, memSP);
 
     for (size_t i = 0; i < COUNTERS_THREAD_AMOUNT; i++) {
-        counters[i] = pthread_create(&counters[i], NULL, readFileFunc, args);
+        pthread_create(&counters[i], NULL, readFileFunc, args);
     }
 
     fprintf(stderr, "Created %d aggregator-threads\n", COUNTERS_THREAD_AMOUNT);
 
-    const int times = 10;
+    const int times = 3;
     fprintf(stderr, "Unlocking all blocks after %d seconds\n", times);
     counter(times);
 
