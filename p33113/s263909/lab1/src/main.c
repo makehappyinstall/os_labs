@@ -40,8 +40,6 @@ int main(int args, char * argv[]){
 		getchar();
 	}
 	
-	//void* memory_pointer =  (void *) START;
-	
 	/**There we allocate memory close to chosen memory
 	 * 242 Mb = 242*1024*1024
 	 * with permission to read and write
@@ -50,10 +48,9 @@ int main(int args, char * argv[]){
 	 * offset is 0 by the rules*/
 	const int file = open(MFILE, O_RDWR|O_CREAT);
 	ftruncate(file, 242*1024*1024);
-	/*memory_pointer*/addr = mmap((void *)START/*memory_pointer*/,242*1024*1024,PROT_READ|PROT_WRITE,MAP_PRIVATE,file,0);
-	//addr = memory_pointer;
+	addr = mmap((void *)START,242*1024*1024,PROT_READ|PROT_WRITE,MAP_PRIVATE,file,0);
 	//assert will output error if there is something wrong
-	assert(/*memory_pointer*/addr != MAP_FAILED);
+	assert(addr != MAP_FAILED);
 
 	if (flags & afteralloc){
 		puts("it's time to check memorry(afret allocation)\npress enter to continue");
@@ -63,14 +60,14 @@ int main(int args, char * argv[]){
 	//endless cycle starts here
 	while(1){
 		puts("<--cycle start-->");
-		write_to_memory(/*memory_pointer*/addr);
+		write_to_memory(addr);
 
 		FILE *first = fopen(FIRST, "wb");
 		if (first == NULL){
 			perror("first file error");
 			exit(FILE_ERR);
 		}
-		read_from_memory(first, /*memory_pointer*/addr);
+		read_from_memory(first, addr);
 		fclose(first);
 
 		FILE *second = fopen(SECOND, "wb");
@@ -81,7 +78,7 @@ int main(int args, char * argv[]){
 		//извините, не могу написать это по английски
 		//тут нужно поделить область памяти на 2 файла, файлы 162Мб а память 242Мю
 		//не сходится, вот и 0x5200059 это отступ, ровно столько байт будет пересекаться в файлах
-		read_from_memory(second, ((uint8_t *)/*memory_pointer*/addr+162*1024*1024-0x5200059));
+		read_from_memory(second, ((uint8_t *)addr+162*1024*1024-0x5200059));
 		fclose(second);
 		agr_state_thread();
 
