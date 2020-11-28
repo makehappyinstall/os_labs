@@ -48,7 +48,6 @@ void* writeInMemory(void* props) {
 void writeInMemoryFromUrandom(char* startAddress) {
     FILE* urandom = fopen("/dev/urandom", "r");
 
-    int offset = 0;
     int writePart = ALLOCATED_MEMORY_SIZE_MB * 1024 * 1024 / WRITE_IN_MEMORY_THREADS_CNT;
 
     pthread_t writeInMemoryThreads[WRITE_IN_MEMORY_THREADS_CNT];
@@ -60,19 +59,16 @@ void writeInMemoryFromUrandom(char* startAddress) {
         props->src = urandom;
         pthread_create(&(writeInMemoryThreads[i]), NULL, writeInMemory, props);
         startAddress += writePart;
-        offset += writePart;
     }
 
     WriteInMemoryProps* lastThreadProps = malloc(sizeof(WriteInMemoryProps));
     lastThreadProps->start = startAddress;
     lastThreadProps->length = writePart + ALLOCATED_MEMORY_SIZE_MB * 1024 * 1024 % WRITE_IN_MEMORY_THREADS_CNT;
     lastThreadProps->src = urandom;
-    offset += lastThreadProps->length;
     pthread_create(&(writeInMemoryThreads[WRITE_IN_MEMORY_THREADS_CNT - 1]), NULL, writeInMemory, lastThreadProps);
 
     for (int i = 0; i < WRITE_IN_MEMORY_THREADS_CNT; i++)
         pthread_join(writeInMemoryThreads[i], NULL);
-    startAddress -= offset;
     fclose(urandom);
 }
 
