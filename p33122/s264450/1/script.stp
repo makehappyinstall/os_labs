@@ -1,0 +1,29 @@
+global cpu_time, virt_mem, res_mem
+
+probe begin {
+	printf("starting probe\n")
+}
+
+probe perf.sw.cpu_clock!, timer.profile {
+	if (!user_mode()) {
+		cpu_time["kernel"] «< 1
+	}
+	else {
+		cpu_time["user"] «< 1
+	}
+	cpu_time["total"] «< 1
+}
+
+probe timer.ms(200) {
+	virt_mem «< proc_mem_size(target())
+	res_mem «< proc_mem_rss(target())
+}
+
+probe end {
+	alltime = cpu_time["total"
+	scaled_user_time = cpu_time["user" * 10000 / alltime
+
+	printf("%8s %8s %8s\n",
+	"virtmem", "rss", "user_cpu_time")
+	printf("%8d %8d %3d.%02d%%\n", @avg(virt_mem), @avg(res_mem), scaled_user_time / 100, scaled_user_time % 100 )
+}

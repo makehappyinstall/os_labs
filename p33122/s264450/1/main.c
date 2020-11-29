@@ -27,7 +27,6 @@ struct memory_filler_data {
 void* memory_filler_thread(void* in_thread_data) {
 	struct memory_filler_data* thread_data = (struct memory_filler_data*) in_thread_data;
 	fread(thread_data->address, thread_data->part_length, 1, thread_data->random_file);
-	free(in_thread_data);
 	pthread_exit(NULL);
 }
 
@@ -63,12 +62,13 @@ void fill_memory(void* memory_address, size_t memory_size) {
 
 	pthread_t filler_threads[D];
 	size_t part_length = memory_size / D;
-	for (int i = 0; i < D; ++i) {
-		struct memory_filler_data* thread_data = malloc(sizeof(struct memory_filler_data));
+	struct memory_filler_data* thread_data = malloc(sizeof(struct memory_filler_data) * D);
 
-		thread_data->part_length = part_length;
-		thread_data->address = (char*) memory_address + part_length * i;
-		thread_data->random_file = random_file;
+	for (int i = 0; i < D; ++i) {
+
+		thread_data[i].part_length = part_length;
+		thread_data[i].address = (char*) memory_address + part_length * i;
+		thread_data[i].random_file = random_file;
 
 		pthread_create(&filler_threads[i], NULL, memory_filler_thread, (void*) thread_data);
 	}
@@ -76,6 +76,7 @@ void fill_memory(void* memory_address, size_t memory_size) {
 	for (int i = 0; i < D; ++i) {
 		pthread_join(filler_threads[i], NULL);
 	}
+	free(thread_data);
 
 	fclose(random_file);
 
@@ -88,7 +89,7 @@ void fill_file_from_memory(void* memory_address, size_t data_length, char* filen
 
 	if (data_length % G != 0) {
 		fwrite((char*) memory_address + data_length - data_length % G,
-				1, data_length % G, output_file);
+			   1, data_length % G, output_file);
 	}
 
 	fclose(output_file);
@@ -100,7 +101,7 @@ void* fill_memory_write_file() {
 	while (1) {
 		//    for (int i = 0; i < file_number; ++i) {
 		//before allocation
-		 void* memory_start = mmap(B, A, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+		void* memory_start = mmap(B, A, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 
 		fill_memory(memory_start, A);
 		char* filename = malloc(20 * sizeof(char));

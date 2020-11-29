@@ -1,0 +1,2 @@
+#!/bin/bash
+sudo stap script.stp -T 60 -x `ps -ef | grep "lab1" | grep -v grep | awk '{print $2}'`
