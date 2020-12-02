@@ -1,6 +1,7 @@
 #include <pthread.h>
 #include <sys/mman.h>
 #include <stdlib.h>
+#include <limits.h>
 #include <stdio.h>
 
 //A=276;B=0x33F2678F;C=mmap;D=77;E=37;F=block;G=120;H=random;I=91;J=max;K=cv
@@ -10,8 +11,6 @@
 #define FILES_SIZE_MB 37
 #define IO_BUFFER_SIZE_B 120
 #define READ_FILES_THREADS_CNT 91
-
-#define INT_MIN -2147483648
 
 typedef struct {
     FILE* src;
@@ -139,7 +138,7 @@ _Noreturn void* readFile(void* props) {
             }
             fseek(file, blockNumber * IO_BUFFER_SIZE_B, SEEK_SET);
             fread(&buf, 1, blockSize, file);
-            int localMax = find_max((int* ) &buf[0], IO_BUFFER_SIZE_B / 4);
+            int localMax = find_max((int* ) buf, IO_BUFFER_SIZE_B / 4);
             if (localMax > max)
                 max = localMax;
         }
@@ -168,9 +167,8 @@ void allocateDeallocateMemory() {
     getchar();
 }
 
-char* fileName;
 char* getFileNameByNumber(int fileNumber) {
-    fileName = malloc(sizeof(char) * 11);
+    char* fileName = malloc(sizeof(char) * 11);
     snprintf(fileName, 11, "file_%d.bin", fileNumber);
     return fileName;
 }
