@@ -92,7 +92,8 @@ void writeInFile(char* src, char* fileName, pthread_mutex_t* mutex, pthread_cond
             //this is a last block, and we should adjust block size
             blockSize = file_size % IO_BUFFER_SIZE_B;
         }
-        fwrite(src + blockNumber * IO_BUFFER_SIZE_B, 1, blockSize, file);
+        fseek(file, blockNumber * IO_BUFFER_SIZE_B, SEEK_SET);
+        fwrite(src, 1, blockSize, file);
     }
     fclose(file);
     printf("Data generated for %s\n", fileName);
@@ -137,7 +138,9 @@ _Noreturn void* readFile(void* props) {
                 blockSize = file_size % IO_BUFFER_SIZE_B;
             }
             fseek(file, blockNumber * IO_BUFFER_SIZE_B, SEEK_SET);
-            fread(&buf, 1, blockSize, file);
+            if (fread(&buf, 1, blockSize, file) != blockSize) {
+                continue;
+            }
             int localMax = find_max((int* ) buf, IO_BUFFER_SIZE_B / 4);
             if (localMax > max)
                 max = localMax;
