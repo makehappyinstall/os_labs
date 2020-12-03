@@ -37,6 +37,8 @@ int cycle_stop = 0;
 int min_value = INT_MAX;
 //sem_t semaphore_urandom;
 sem_t semaphore_file[FULL_FILES_COUNT+1];
+sem_t main_sem;
+int thread_counter = 0;
 
 void write_to_file(const int * memory_region, int start, int fd, int file_size){
     int num_blocks = file_size / BLOCK_SIZE;
@@ -69,6 +71,10 @@ void read_from_file(int * memory_region, int fd, int file_size){
 void* fill_memory_thread(void * params_void){
     memory_fill_params * params = (memory_fill_params *) params_void;
     printf("[Generator %i] start\n", params->thread_num);
+    thread_counter++;
+    if(thread_counter == NUM_THREADS_MEMORY+NUM_THREADS_FILE+1){
+        sem_post(&main_sem);
+    }
     char * memory_segment = (char *) params->memory_region + (params->start_number * 4);
     int size = (params->end_number - params->start_number) * 4;
     do{
@@ -81,6 +87,10 @@ void* fill_memory_thread(void * params_void){
 void* file_write_thread(void * params_void){
     file_write_params * params = (file_write_params *) params_void;
     printf("[Writer] start\n");
+    thread_counter++;
+    if(thread_counter == NUM_THREADS_MEMORY+NUM_THREADS_FILE+1){
+        sem_post(&main_sem);
+    }
     int first_run = 1;
     do{
         //заполняем файлы
@@ -112,6 +122,10 @@ void* file_write_thread(void * params_void){
 void* file_read_thread(void * params_void){
     file_read_params * params = (file_read_params *) params_void;
     printf("[Reader %i] start with file %i\n", params->thread_number, params->file_number);
+    thread_counter++;
+    if(thread_counter == NUM_THREADS_MEMORY+NUM_THREADS_FILE+1){
+        sem_post(&main_sem);
+    }
     do{
         //заполняем файлы
         char filename[16];
@@ -144,6 +158,7 @@ void fill_memory(int * memory_region){
     cycle_stop=0;
     //memory filling params
     //sem_init(&semaphore_urandom, 0, 1);
+    sem_init(&main_sem, 0, 0);
     int fd = open(RANDOM_FILE_NAME, O_RDONLY);
     pthread_t * memory_fillers = (pthread_t*) malloc(NUM_THREADS_MEMORY * sizeof(pthread_t));
     memory_fill_params * memory_data = (memory_fill_params *) malloc(NUM_THREADS_MEMORY * sizeof(memory_fill_params));
@@ -175,7 +190,8 @@ void fill_memory(int * memory_region){
         pthread_create(&(file_readers[i]), NULL, file_read_thread, &(file_read_data[i]));
     }
 
-    sleep(1); //ждем, чтобы следующая надпись вывелась после старта всех потоков
+    //while (thread_counter != NUM_THREADS_FILE + NUM_THREADS_MEMORY + 1){} //ждем, чтобы следующая надпись вывелась после старта всех потоков
+    sem_wait(&main_sem);
     printf("Press [Enter] to interrupt infinite loop\n");
     getchar();
     printf("Waiting for all threads finish\n");
@@ -196,6 +212,7 @@ void fill_memory(int * memory_region){
     free(file_read_data);
     free(file_readers);
     //sem_destroy(&semaphore_urandom);
+    sem_destroy(&main_sem);
     for(int i=0; i<=FULL_FILES_COUNT; i++){
         sem_destroy(&semaphore_file[i]);
     }
