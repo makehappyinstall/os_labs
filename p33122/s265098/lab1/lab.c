@@ -81,7 +81,7 @@ void* threadFillFilesFunc(void* args ){
             char *wblock = (char *) (((uintptr_t) block + blockSize - 1) & ~((uintptr_t) blockSize - 1));
             
             for(int j = 0; j < blocksNum; ++j){
-                addressf = (unsigned char *) B_START_ADDRESS + i * ffp->fileSize + blockSize * j;
+                addressf = ptr + i * ffp->fileSize + blockSize * j;
                 memcpy(wblock, addressf, blockSize);
 
                 if(pwrite(fileFD, wblock, blockSize, j*blockSize) == -1){
@@ -106,11 +106,11 @@ void* threadReadFilesFunc(void *args){
     long long blocksNum = E_MB_FILE_SIZE*1000*1000/G_BYTES_BLOCK_SIZE;
     do{
         for(int i = 0; i < rfp->filesNum; ++i){
-            //printf("reading file #%d\n", i);
+            printf("reading file #%d\n", i);
             long long sum = 0;
-            //printf("before sprintf\n");
+            printf("before sprintf\n");
             sprintf(filename, "file_%d", i);
-            //printf("before lock\n");
+            printf("before lock\n");
             if(!readCondition){
                 break;
             }
@@ -136,6 +136,8 @@ void* threadReadFilesFunc(void *args){
     }while(readCondition);
     return NULL;
 }
+
+
 void fillMemory(){
     printf("    Memory filling...\n");
         
@@ -146,14 +148,14 @@ void fillMemory(){
     
     for(int i = 0; i < D_THREAD_NUM - 1; ++i){
         FillMemoryParams fillMemoryParams;
-        fillMemoryParams.address = (unsigned char *) B_START_ADDRESS; 
+        fillMemoryParams.address = ptr; 
         fillMemoryParams.address += bufSize * i;
         fillMemoryParams.bufSize = bufSize;
         pthread_create(&threads[i], NULL, threadFillMemoryFunc, &fillMemoryParams);
         
     }
     FillMemoryParams fillMemoryParams;
-    fillMemoryParams.address = (unsigned char *)B_START_ADDRESS;
+    fillMemoryParams.address = ptr;
     fillMemoryParams.address += bufSize * (D_THREAD_NUM - 1);
     fillMemoryParams.bufSize = lastThreadBufSize;
     pthread_create(&threads[D_THREAD_NUM - 1], NULL, threadFillMemoryFunc, &fillMemoryParams);
@@ -230,7 +232,8 @@ int main(){
     printf("Before memory allocation\n");
     getchar();
     
-    ptr = mmap((void *) B_START_ADDRESS, A_BYTES, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+    // ptr = mmap((void *) B_START_ADDRESS, A_BYTES, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+    ptr = mmap(NULL, A_BYTES, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 
     if(ptr == MAP_FAILED){
             printf("Mapping Failed\n");

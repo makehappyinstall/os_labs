@@ -6,7 +6,7 @@ probe begin {
 probe syscall.openat {
     opens[execname()] <<< 1
 }
-probe syscall.pread.return {
+probe syscall.fread.return {
     count = retval
     if ( count >= 0 && pid() == target()) {
         reads[execname()] <<< count
