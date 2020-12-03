@@ -114,7 +114,7 @@ void* threadReadFilesFunc(void *args){
             if(!readCondition){
                 break;
             }
-            if(!pthread_mutex_trylock(&rfp->mutexes[i])){
+            if(pthread_mutex_trylock(&rfp->mutexes[i]) != 0){
                 continue;
             }
             printf("waiting cond for file #%d\n", i);
