@@ -6,7 +6,6 @@
 
 
 
-// A=18;B=0x37C28270;C=mmap;D=93;E=135;F=nocache;G=75;H=random;I=17;J=avg;K=sem
 
 
 
