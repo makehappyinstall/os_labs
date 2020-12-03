@@ -30,7 +30,7 @@ uint8_t *address;
 FILE **files;
 pthread_mutex_t mutexes[COUNT_FILES];
 pthread_cond_t conds[COUNT_FILES];
-size_t check[COUNT_FILES];
+int check[COUNT_FILES];
 
 struct GenDataThread {
     size_t start;
@@ -148,7 +148,7 @@ void *writeInMemory(void *dataThread) {
     struct GenDataThread *genDataThread = (struct GenDataThread *) dataThread;
     for (size_t i = genDataThread->start; i < genDataThread->end; i++) {
         uint8_t number = 0;
-        fread(&number, sizeof(uint8_t), 1, genDataThread->urandom);
+        fread(&number, 1, 1, genDataThread->urandom);
         address[i] = number;
     }
     return NULL;
@@ -189,7 +189,7 @@ void *writeInFile(void *dataThread) {
 
         int nelts = (i + BLOCK_SIZE_BYTES) < sizeMemory? BLOCK_SIZE_BYTES: (sizeMemory - i);
         size_t offsetMajor = offsetMinor + i;
-        fwrite((address + offsetMajor), sizeof(uint8_t), nelts, file);
+        fwrite((address + offsetMajor), 1, nelts, file);
         fflush(file);
 
         check[threadId] = 0;
@@ -242,7 +242,7 @@ _Noreturn void *readFromFile(void *dataThread) {
             }
 
             uint8_t number;
-            fread(&number, sizeof(uint8_t), 1, file);
+            fread(&number, 1, 1, file);
             sum += number;
 
             pthread_mutex_unlock(mutex);
