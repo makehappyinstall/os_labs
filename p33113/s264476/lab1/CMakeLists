@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.16)
+project(lab1 C)
+
+set(CMAKE_C_STANDARD 99)
+find_package(Threads REQUIRED)
+add_executable(lab1 main.c СpuTime.c)
+target_link_libraries(${CMAKE_PROJECT_NAME} Threads::Threads)
