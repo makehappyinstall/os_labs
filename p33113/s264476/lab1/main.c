@@ -36,7 +36,6 @@ void *use_random(void *args) {
     int threadIndex = arguments->thread_i;
     int randomNumb = arguments->randomNumb;
     pthread_mutex_unlock(&mutex);
-    printf("%d\n", threadIndex);
     int blockSize = A / D;
     void *ptrStart = mem_pointer + threadIndex * blockSize;
     if (threadIndex == D - 1) blockSize += A - (A / D) * D;
@@ -121,12 +120,9 @@ void write_to_single_file(char *fileName, void *start, int size) {
 }
 
 void write_to_file() {
-    char fileName[9];
     printf("Записываем данные из памяти в файлы...\n");
     for (int i = 0; i < FILES_NUMBER; i++) {
-
-        sprintf(fileName, "output_%d", i);
-
+        char fileName[] =  {'0' + i, '\0'};
         if (i == FILES_NUMBER - 1)
             write_to_single_file(fileName, mem_pointer + megabyte_size * E * i, (A - E * (FILES_NUMBER - 1)) * megabyte_size);
         else
@@ -136,9 +132,8 @@ void write_to_file() {
 
 void *print_file_sum() {
     double startIOCPUTime, endIOCPUTime;
-    char fileName[9];
     for (int i = 0; i < FILES_NUMBER; i++) {
-        sprintf(fileName, "output_%d", i);
+        char fileName[] =  {'0' + i, '\0'};
         int fd = open(fileName, O_RDONLY);
         startIOCPUTime = getCPUTime();
         if (fd < 0) {
