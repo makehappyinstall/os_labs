@@ -22,13 +22,21 @@
 #define ERROR_JOIN_THREAD   -12
 #define SUCCESS               0
 
+struct random_arg_struct {
+    int randomNumb;
+    int thread_i;
+};
+
 void *mem_pointer;
-int randomNumb;
 double IOCPUTime = 0;
 pthread_mutex_t mutex;
 
-void *use_random(void *vargPtr) {
-    int threadIndex = (intptr_t) vargPtr;
+void *use_random(void *args) {
+    struct random_arg_struct *arguments = args;
+    int threadIndex = arguments->thread_i;
+    int randomNumb = arguments->randomNumb;
+    pthread_mutex_unlock(&mutex);
+    printf("%d\n", threadIndex);
     int blockSize = A / D;
     void *ptrStart = mem_pointer + threadIndex * blockSize;
     if (threadIndex == D - 1) blockSize += A - (A / D) * D;
@@ -42,10 +50,11 @@ void *use_random(void *vargPtr) {
 void fill_memory() {
     int status; //для создания потоков
     int status_addr;
+    struct random_arg_struct arg_struct;
 
     printf("Заполняем случайными числами в %d потоков\n", D);
-    randomNumb = open("/dev/urandom", O_RDONLY);
-    if (randomNumb < 0) {
+    arg_struct.randomNumb = open("/dev/urandom", O_RDONLY);
+    if (arg_struct.randomNumb < 0) {
         printf("Не удалось открыть %s\n", "/dev/urandom");
         exit(1);
     }
@@ -53,7 +62,9 @@ void fill_memory() {
     pthread_t threads[D];
 
     for (int i = 0; i < D; i++) {
-        status = pthread_create(&threads[i], 0, use_random, (void *) (intptr_t) i);
+        pthread_mutex_lock(&mutex);
+        arg_struct.thread_i = i;
+        status = pthread_create(&threads[i], 0, use_random, (void *) &arg_struct);
         if (status != 0) {
             printf("Не удалось создать поток, статус = %d\n", status);
             exit(ERROR_CREATE_THREAD);
@@ -67,7 +78,8 @@ void fill_memory() {
             exit(ERROR_JOIN_THREAD);
         }
     }
-    close(randomNumb);
+
+    close(arg_struct.randomNumb);
     printf("Замеряем после заполнения участка данными (Enter - далее)\n");
     getchar();
 }
