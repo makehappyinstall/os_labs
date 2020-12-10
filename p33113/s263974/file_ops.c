@@ -11,6 +11,9 @@
 
 #include "file_ops.h"
 
+#define ceil(a, b) ((a % b) != 0 ? a / b + 1 : a / b)
+#define rnd_offset(upper_bound) ((size_t) random() % upper_bound)
+
 struct aggregating_thread_state{
     int fd;
     pthread_cond_t* file_cv;
@@ -26,18 +29,11 @@ static int create_file(const char* file_name);
 static void write_rnd_mem_to_file(int fd, void* mem_ptr, size_t mem_size, size_t block_size, size_t file_size);
 static void* aggregating_thread(void* arg);
 
-int ceil_div(long a, long b) {
-    double div = (double) a / (double) b;
-    int floored_div = (int) div;
-    return floored_div < div ? floored_div + 1 : floored_div;
-}
-
 void write_rnd_mem_to_files(void* addr, size_t mem_size, size_t file_size_limit, size_t block_size) {
-    int file_count = ceil_div(mem_size, file_size_limit);
+    int file_count = ceil(mem_size, file_size_limit);
 
     int i;
-    size_t memory_remains;
-    for (i = 0, memory_remains = mem_size; i < file_count; i++, memory_remains -= file_size_limit) {
+    for (i = 0; i < file_count; i++) {
         const char* new_file_name = generate_file_name(i + 1);
         int new_file = create_file(new_file_name);
         printf("Writing to %s\n", new_file_name);
@@ -46,26 +42,22 @@ void write_rnd_mem_to_files(void* addr, size_t mem_size, size_t file_size_limit,
     }
 }
 
-static size_t gen_rnd_offset(long upper_bound) {
-    return (size_t) random() * upper_bound / RAND_MAX;
-}
-
 long aggregate_value_from_files(size_t mem_size, size_t file_size, int thread_count, long fold_start, long(*agg_func)(long, long)) {
-    int file_count = ceil_div(mem_size, file_size);
+    int file_count = ceil(mem_size, file_size);
 
     int threads_per_file = thread_count / file_count;
     long size_per_thread = (long long) file_size / threads_per_file;
     long remainder_size =  (long long) file_size % threads_per_file;
 
-    pthread_t* thread_ids = malloc(sizeof(pthread_t) * thread_count);
-    struct aggregating_thread_state* threads = malloc(sizeof(struct aggregating_thread_state) * thread_count);
-    long* results = malloc(sizeof(long) * thread_count);
+    pthread_t thread_ids[thread_count];
+    struct aggregating_thread_state threads[thread_count];
+    long results[thread_count];
 
     int file_iter, thread_iter;
     int files[file_count];
+    pthread_cond_t files_cv[file_count];
+    pthread_mutex_t files_mutex[file_count];
 
-    pthread_cond_t* files_cv = malloc(sizeof(pthread_cond_t) * file_count);
-    pthread_mutex_t* files_mutex = malloc(sizeof(pthread_mutex_t) * file_count);
     for (file_iter = 0; file_iter < file_count; file_iter++) {
         const char* file_name = generate_file_name(file_iter+1);
         files[file_iter] = create_file(file_name);
@@ -97,16 +89,9 @@ long aggregate_value_from_files(size_t mem_size, size_t file_size, int thread_co
 
     long global_fold_val = fold_start;
     for(thread_iter = 0; thread_iter < thread_count; thread_iter++){
-        void* tmp;
-        pthread_join(thread_ids[thread_iter], &(tmp));
+        pthread_join(thread_ids[thread_iter], NULL);
         global_fold_val = agg_func(global_fold_val, *(results + thread_iter));
     }
-
-    free(thread_ids);
-    free(threads);
-    free(results);
-    free(files_cv);
-    free(files_mutex);
 
     return global_fold_val;
 }
@@ -116,7 +101,7 @@ static void write_rnd_mem_to_file(int fd, void* mem_ptr, size_t mem_size, size_t
     long long remains = file_size;
     puts("Started writing to file");
     while (remains > 0) {
-        size_t rnd_offset = gen_rnd_offset(mem_size - block_size - 1);
+        size_t rnd_offset = rnd_offset(mem_size - block_size - 1);
         void* rnd_ptr = (char*) mem_ptr + rnd_offset;
 
         if (iter % 100000 == 0) {
@@ -126,7 +111,7 @@ static void write_rnd_mem_to_file(int fd, void* mem_ptr, size_t mem_size, size_t
 
         write(fd, rnd_ptr, block_size);
 
-        remains -= block_size;
+        remains -= (long long) block_size;
         iter++;
     }
     puts("Finished writing to file");
@@ -162,7 +147,7 @@ static void* aggregating_thread(void* arg) {
     printf("Thread computed aggregated value: %ld\n", local_fold_val);
 
     *cur_thread->thread_result = local_fold_val;
-    return NULL;
+    return 0;
 }
 
 static const char* generate_file_name(int file_num) {
@@ -174,8 +159,10 @@ static const char* generate_file_name(int file_num) {
 
 static int create_file(const char* file_name) {
     int file = open(file_name, O_RDWR | O_CREAT, (mode_t) 0600);
+#ifdef POSIX_FADVISE
     posix_fadvise(file, 0, 0, POSIX_FADV_DONTNEED);
-
+    printf("Advised system to use NOCACHE with %s\n", file_name);
+#endif
     if (file == -1){
         perror("Error on creating the file");
         exit(errno);

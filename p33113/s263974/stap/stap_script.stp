@@ -2,7 +2,9 @@ global read, write, start, open, close
 
 probe begin {
    start = gettimeofday_s()
+   printf("read,write,open,close,task_stime\n")
 }
+
 probe syscall.write {
    if (pid() == target())
    	write += 1
@@ -24,7 +26,7 @@ probe syscall.close {
 }
 
 probe timer.ms(100) {
-   printf("%d\t%d\t%d\t%d\t%16d\n", read, write, open, close, task_stime())
+   printf("%d,%d,%d,%d,%d\n", read, write, open, close, task_stime())
    read=0
    write=0
    open = 0

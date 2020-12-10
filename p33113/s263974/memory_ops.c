@@ -5,10 +5,11 @@
 #include <sys/mman.h>
 #include <pthread.h>
 #include <stdio.h>
-#include <malloc.h>
 #include <sys/types.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <errno.h>
+#include <stdlib.h>
 
 #include "memory_ops.h"
 
@@ -25,8 +26,8 @@ void* allocate_memory(void* addr, size_t size) {
 }
 
 void fill_the_memory(void* addr, size_t size, const char* read_from, int thread_count) {
-    pthread_t* thread_ids = malloc(sizeof(pthread_t) * thread_count);
-    struct to_fill_region* regions = malloc(sizeof(struct to_fill_region) * thread_count);
+    pthread_t thread_ids[thread_count];
+    struct to_fill_region regions[thread_count];
 
     size_t size_per_thread = size / thread_count;
     size_t memory_remains = size;
@@ -50,9 +51,6 @@ void fill_the_memory(void* addr, size_t size, const char* read_from, int thread_
     for (i = 0; i < thread_count; i++) {
         pthread_join(*(thread_ids + i), NULL);
     }
-
-    free(thread_ids);
-    free(regions);
 }
 
 static void* filling_thread(void *arg){
@@ -60,10 +58,22 @@ static void* filling_thread(void *arg){
     int file_d = open(region->read_from, O_RDONLY);
     if (file_d == -1) {
         perror("Error on opening the file");
+        exit(errno);
     } else {
-        void* write_to = ((char*) region->ptr + region->offset);
-        size_t read_bytes = read(file_d, write_to, region->size);
-        printf("FILL %p with %lu bytes from %s\n", write_to, read_bytes, region->read_from);
+        void* write_to;
+        size_t read_bytes;
+        size_t successfully_read = 0;
+        while(successfully_read < region->size) {
+            write_to = ((char*) region->ptr + region->offset);
+            read_bytes = read(file_d, write_to, region->size - successfully_read);
+            if (read_bytes == -1) {
+                perror("Error on reading the file");
+                exit(errno);
+            } else {
+                successfully_read += read_bytes;
+                printf("FILLED %p with %lu bytes from %s (%lu remains)\n", write_to, read_bytes, region->read_from, region->size - successfully_read);
+            }
+        }
     }
-    return NULL;
+    return 0;
 }
