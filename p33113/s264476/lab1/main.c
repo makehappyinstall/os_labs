@@ -22,48 +22,49 @@
 #define ERROR_JOIN_THREAD   -12
 #define SUCCESS               0
 
-struct random_arg_struct {
-    int randomNumb;
-    int thread_i;
-};
-
 void *mem_pointer;
 double IOCPUTime = 0;
 pthread_mutex_t mutex;
 
-void *use_random(void *args) {
-    struct random_arg_struct *arguments = args;
-    int threadIndex = arguments->thread_i;
-    int randomNumb = arguments->randomNumb;
-    pthread_mutex_unlock(&mutex);
+int read_smth(int fd, void* data, int size){
+    ssize_t read_bytes = 0;
+    while(size>0 &&(read_bytes = read(fd, data, size)) > 0){
+        read_bytes += read_bytes;
+        size -= read_bytes;
+    }
+    return read_bytes;
+}
+
+void *use_random(void *arg) {
+    int threadIndex = (intptr_t) arg;
+
+    int random_fd = open("/dev/urandom", O_RDONLY);
+    if (random_fd < 0) {
+        printf("Не удалось открыть %s\n", "/dev/urandom");
+        exit(1);
+    }
+
     int blockSize = A / D;
     void *ptrStart = mem_pointer + threadIndex * blockSize;
     if (threadIndex == D - 1) blockSize += A - (A / D) * D;
-    if (read(randomNumb, ptrStart, blockSize) == -1) {
+    int read_bytes = read_smth(random_fd, ptrStart, blockSize);
+    if (read_bytes < blockSize) {
         printf("Не удалось заполнить область с %p, размер = %d\n", ptrStart, blockSize);
-        return NULL;
+        exit(1);
     }
+    close(random_fd);
     return SUCCESS;
 }
 
 void fill_memory() {
     int status; //для создания потоков
     int status_addr;
-    struct random_arg_struct arg_struct;
 
     printf("Заполняем случайными числами в %d потоков\n", D);
-    arg_struct.randomNumb = open("/dev/urandom", O_RDONLY);
-    if (arg_struct.randomNumb < 0) {
-        printf("Не удалось открыть %s\n", "/dev/urandom");
-        exit(1);
-    }
-
     pthread_t threads[D];
 
     for (int i = 0; i < D; i++) {
-        pthread_mutex_lock(&mutex);
-        arg_struct.thread_i = i;
-        status = pthread_create(&threads[i], 0, use_random, (void *) &arg_struct);
+        status = pthread_create(&threads[i], 0, use_random, (void *) (intptr_t) i);
         if (status != 0) {
             printf("Не удалось создать поток, статус = %d\n", status);
             exit(ERROR_CREATE_THREAD);
@@ -72,13 +73,12 @@ void fill_memory() {
 
     for (int i = 0; i < D; i++) {
         status = pthread_join(threads[i], (void **) &status_addr);
-        if (status_addr != SUCCESS) {
+        if (status != SUCCESS) {
             printf("Не удалось выполнить поток, статус = %d\n", status);
             exit(ERROR_JOIN_THREAD);
         }
     }
 
-    close(arg_struct.randomNumb);
     printf("Замеряем после заполнения участка данными (Enter - далее)\n");
     getchar();
 }
@@ -132,6 +132,7 @@ void write_to_file() {
 
 void *print_file_sum() {
     double startIOCPUTime, endIOCPUTime;
+
     for (int i = 0; i < FILES_NUMBER; i++) {
         char fileName[] =  {'0' + i, '\0'};
         int fd = open(fileName, O_RDONLY);
