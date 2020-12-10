@@ -26,9 +26,9 @@ void *mem_pointer;
 double IOCPUTime = 0;
 pthread_mutex_t mutex;
 
-int read_smth(int fd, void* data, int size){
+int read_smth(int fd, void *data, int size) {
     ssize_t read_bytes = 0;
-    while(size>0 &&(read_bytes = read(fd, data, size)) > 0){
+    while (size > 0 && (read_bytes = read(fd, data, size)) > 0) {
         read_bytes += read_bytes;
         size -= read_bytes;
     }
@@ -47,6 +47,7 @@ void *use_random(void *arg) {
     int blockSize = A / D;
     void *ptrStart = mem_pointer + threadIndex * blockSize;
     if (threadIndex == D - 1) blockSize += A - (A / D) * D;
+    blockSize *= megabyte_size; // перевели в байты
     int read_bytes = read_smth(random_fd, ptrStart, blockSize);
     if (read_bytes < blockSize) {
         printf("Не удалось заполнить область с %p, размер = %d\n", ptrStart, blockSize);
@@ -101,7 +102,7 @@ void write_to_single_file(char *fileName, void *start, int size) {
 
     for (int i = 0; i < blocksNumber; i++) {
         ssize_t wroteBytes;
-        if(i == blocksNumber - 1)
+        if (i == blocksNumber - 1)
             wroteBytes = write(fd, start + i * G, size - G * (blocksNumber - 1));
         else
             wroteBytes = write(fd, start + i * G, G);
@@ -122,9 +123,10 @@ void write_to_single_file(char *fileName, void *start, int size) {
 void write_to_file() {
     printf("Записываем данные из памяти в файлы...\n");
     for (int i = 0; i < FILES_NUMBER; i++) {
-        char fileName[] =  {'0' + i, '\0'};
+        char fileName[] = {'0' + i, '\0'};
         if (i == FILES_NUMBER - 1)
-            write_to_single_file(fileName, mem_pointer + megabyte_size * E * i, (A - E * (FILES_NUMBER - 1)) * megabyte_size);
+            write_to_single_file(fileName, mem_pointer + megabyte_size * E * i,
+                                 (A - E * (FILES_NUMBER - 1)) * megabyte_size);
         else
             write_to_single_file(fileName, mem_pointer + megabyte_size * E * i, E * megabyte_size);
     }
@@ -134,7 +136,7 @@ void *print_file_sum() {
     double startIOCPUTime, endIOCPUTime;
 
     for (int i = 0; i < FILES_NUMBER; i++) {
-        char fileName[] =  {'0' + i, '\0'};
+        char fileName[] = {'0' + i, '\0'};
         int fd = open(fileName, O_RDONLY);
         startIOCPUTime = getCPUTime();
         if (fd < 0) {
@@ -145,16 +147,16 @@ void *print_file_sum() {
         off_t size = lseek(fd, 0L, SEEK_END);
         lseek(fd, 0, SEEK_SET);
         __uint8_t *data = (__uint8_t *) malloc(size);
-        ssize_t readBytes = read(fd, data, size);
+        int readBytes = read(fd, data, size);
         close(fd);
         pthread_mutex_unlock(&mutex);
         endIOCPUTime = getCPUTime();
         IOCPUTime += endIOCPUTime - startIOCPUTime;
-        __int64_t sum = 0;
-        for (size_t i = 0; i < readBytes / sizeof(__int8_t); i ++)
+        int sum = 0;
+        for (size_t i = 0; i < readBytes; i++)
             sum += data[i];
 
-        printf("Сумма агрегированных данных в файле '%s' = %ld\n", fileName, sum);
+        printf("Сумма агрегированных данных в файле '%s' = %d\n", fileName, sum);
         free(data);
     }
 }
