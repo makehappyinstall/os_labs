@@ -1,0 +1,79 @@
+#! /usr/bin/env stap
+
+//https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/systemtap_beginners_guide/threadtimessect
+
+probe perf.sw.cpu_clock!, timer.profile {
+  if (pid() == target()) {
+    if (!user_mode())
+      kticks <<< 1
+    else
+      uticks <<< 1
+    ticks <<< 1
+  }
+}
+
+global uticks, kticks, ticks
+global utimes, ktimes
+
+probe timer.s(1) {
+  allticks = @count(ticks)
+  uscaled = @count(uticks)*10000/allticks
+  kscaled = @count(kticks)*10000/allticks
+  
+  utimes <<< uscaled/100
+  ktimes <<< kscaled/100
+
+  delete uticks
+  delete kticks
+  delete ticks
+}
+
+//https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/systemtap_beginners_guide/mainsect-disk#disktop
+
+global write_stat, read_stat
+//global io_stat
+global read_bytes,write_bytes
+
+probe vfs.read.return {
+  if ($return > 0 && devname != "N/A" && pid() == target()) {
+    //io_stat["R"] += $return
+    read_bytes += $return
+  }
+}
+
+probe vfs.write.return {
+  if ($return > 0 && devname != "N/A" && pid() == target()) {
+    //io_stat["W"] += $return
+    write_bytes += $return
+  }
+}
+
+probe timer.s(1) {
+  /* skip non-read/write disk */
+  if (read_bytes+write_bytes) {
+    read_stat <<< read_bytes/1024
+    write_stat <<< write_bytes/1024
+  }
+  /* clear data */
+  //delete io_stat
+  read_bytes = 0
+  write_bytes = 0  
+}
+
+probe end {
+  println("utime % (interval 1s):")
+  println(@hist_linear(utimes,0,100,1))
+  printf("\n")
+
+  println("ktime % (interval 1s):")
+  println(@hist_linear(ktimes,0,100,1))
+  printf("\n")
+
+  println("writes kB/s (interval 1s):")
+  println(@hist_linear(write_stat,0,10000,100))
+  printf("\n")
+
+  println("read kB/s (interval 1s):")
+  println(@hist_linear(read_stat,0,10000,100))
+  printf("\n")
+}
