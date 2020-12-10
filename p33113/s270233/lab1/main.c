@@ -23,20 +23,23 @@
 #define RANDOM_SRC "/dev/urandom"
 
 int infinity = 1;
-void* memory_region;
+void *memory_region;
 int randomFd;
 
-void* fill_with_random(void* vargPtr) {
-    int chunkSize = A/D;
-    const int threadIndex = (int) vargPtr;
-    void* ptrStart = memory_region + threadIndex * chunkSize;
+void *fill_with_random(void* vargPtr) {
+    int chunkSize = (A * megabyte_size)/D;
+    int threadIndex = (intptr_t) vargPtr;
+    intptr_t ptrStart = (intptr_t)memory_region + threadIndex * chunkSize;
+    void *start = (void *)ptrStart;
     if (threadIndex == D - 1)
-        chunkSize += A - (A/D)*D;
-    ssize_t result = read(randomFd, ptrStart, chunkSize);
+        chunkSize += (A*megabyte_size) - ((A*megabyte_size)/D)*D;
+    ssize_t result = read(randomFd, start, chunkSize);
     if (result == -1) {
-        printf("Не получилось заполнить область с %p, размер = %d\n", ptrStart, chunkSize);
+        printf("Не получилось заполнить область с %p, размер = %d\n",(void *)ptrStart, chunkSize);
+        printf("errno = %d\n", errno);
         exit(-1);
     }
+    return 0;
 }
 
 void write_to_memory() {
@@ -48,16 +51,18 @@ void write_to_memory() {
     }
     pthread_t threads[D];
     for (int i = 0; i < D; i++) {
-        pthread_create(&threads[i], 0, fill_with_random, (void*) i);
+        pthread_create(&threads[i], 0, fill_with_random, (void*) (intptr_t)i);
     }
-    for (int i = 0; i < D; i++)
-    pthread_join(threads[i], NULL);
+    for (int i = 0; i < D; i++){
+      pthread_join(threads[i], NULL);
+    }
     close(randomFd);
     printf("После заполнения участка данными ([ENTER])\n");
     getchar();
+
 }
 
-void writeSingleFile(char* fileName, void* start, int size) {
+void writeSingleFile(char* fileName, intptr_t start, int size) {
     int blocksNumber = size/G;
     if (G*blocksNumber < size)
         blocksNumber++;
@@ -71,8 +76,8 @@ void writeSingleFile(char* fileName, void* start, int size) {
         int effectiveBlockSize = G;
         if (i == blocksNumber - 1)
             effectiveBlockSize = size - G*(blocksNumber - 1);
-        void* writeStartPtr = start + i*G;
-        ssize_t wroteBytes = write(fd, writeStartPtr, effectiveBlockSize);
+        intptr_t writeStartPtr = start + i*G;
+        ssize_t wroteBytes = write(fd, (void *)writeStartPtr, effectiveBlockSize);
         printf("Записывается файл '%s': %d/%d блоков\r", fileName, i, blocksNumber);
         fflush(stdout);
         if (wroteBytes == -1) {
@@ -93,7 +98,8 @@ void write_to_file() {
         int actualSize = E*megabyte_size;
         if (i == FILES_NUMBER - 1)
         actualSize = (A - E*(FILES_NUMBER - 1))*megabyte_size;
-        writeSingleFile(fileName, memory_region + E * i, actualSize);
+	intptr_t start = (intptr_t)memory_region + E * i;
+        writeSingleFile(fileName, start, actualSize);
     }
 }
 
@@ -104,36 +110,40 @@ void free_mem(){
 }
 
 
-void* filesAnalyzeThread(void* vargPtr) {
+void *filesAnalyzeThread(void* vargPtr) {
   	for (int i = 0; i < FILES_NUMBER; i++) {
   	    char fileName[] = {'0' + i, '\0'};
         int fd = open(fileName, O_CREAT | O_RDONLY, S_IRWXU | S_IRGRP | S_IROTH);
         if (fd < 0) {
             printf("Не получилось открыть файл '%s' для чтения\n", fileName);
-            return;
+            exit(-1);
         }
         flock(fd, LOCK_SH);
         off_t size = lseek(fd, 0L, SEEK_END);
         lseek(fd, 0, SEEK_SET);
-        __int8_t* data = (__uint8_t*) malloc(size);
+        __int8_t* data = (__int8_t*) malloc(size);
         ssize_t readBytes = read(fd, data, size);
         flock(fd, LOCK_UN);
         close(fd);
         __int64_t sum = 0;
         for (size_t i = 0; i < readBytes/sizeof(__int8_t); i += 1) {
-                sum += data[i];
+          sum += data[i];
         }
-        printf("Анализ: Сумма в файле '%s' - %d\n",fileName, sum);
+        printf("Анализ: Сумма в файле '%s' - %ld\n",fileName, sum);
         free(data);
   	}
+    return 0;
 }
 
 void read_from_file(){
     printf("Анализ содержимов файлов, используя %d потоков...\n", I);
     pthread_t threads[I];
-      for (int i = 0; i < I; i++) {
-	    pthread_create(&threads[i], NULL, filesAnalyzeThread, NULL);
-  	}
+    for (int i = 0; i < I; i++) {
+       pthread_create(&threads[i], NULL, filesAnalyzeThread, NULL);
+	  }
+    for (int i = 0; i < I; i++) {
+       pthread_join(threads[i], NULL);
+	  }
 }
 
 int main(int argc, char *argv[]){
