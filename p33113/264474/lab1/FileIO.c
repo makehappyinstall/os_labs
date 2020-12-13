@@ -42,18 +42,12 @@ void *FileWriterThread(void *rawParams) {
         pthread_mutex_lock(params->fileMutex);
 
         file = fopen(file_name, "wb");
-        // setbuf(file,NULL);
         printf("%d\n",params->blocksCount*blockSize);
         for (size_t i = 0; i < params->blocksCount; ++i) {
+            
             random_offset = (rand()%params->blocksCount)*blockNumbersSize;
             memcpy(block.numbers, address + random_offset, blockNumbersSize);
-
-//            for (size_t j = 0; j < blockSize / sizeof(int); ++j) {
-//                printf("%d", block.numbers[j]);
-//            }
-
             fwrite(block.raw, sizeof(char), blockSize, file);
-
 
         }
         fclose(file);
@@ -90,7 +84,7 @@ void *FileReaderThread(void *rawParams) {
             snprintf(file_name, 256, "labfile_%d", params->fileWriterThreadParams[i].file_id);
 
             pthread_mutex_lock(params->fileWriterThreadParams[i].fileMutex);
-            file = fopen(file_name, "wb");
+            file = fopen(file_name, "rb");
             memset(block.raw, 0, blockSize);
             rewind(file);
 
