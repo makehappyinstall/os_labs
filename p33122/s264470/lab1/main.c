@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include "memory.h"
+#include "stdatomic.h"
 
 #define MEM_SIZE 118*1024*1024
 #define FIRST_ADDRESS 0x3C28E4CC
@@ -38,7 +39,7 @@ int min_value = INT_MAX;
 //sem_t semaphore_urandom;
 sem_t semaphore_file[FULL_FILES_COUNT+1];
 sem_t main_sem;
-int thread_counter = 0;
+atomic_int thread_counter = 0;
 
 void write_to_file(const int * memory_region, int start, int fd, int file_size){
     int num_blocks = file_size / BLOCK_SIZE;
