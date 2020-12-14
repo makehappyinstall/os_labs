@@ -5,6 +5,8 @@
 #ifndef OPERATING_SYSTEMS_ITMO_2020_UTIL_H
 #define OPERATING_SYSTEMS_ITMO_2020_UTIL_H
 
+#define INTERACTIVE
+
 void wait_for_input(const char* msg);
 long min(long a, long b);
 

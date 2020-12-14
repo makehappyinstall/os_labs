@@ -9,6 +9,8 @@
 
 #define POSIX_FADVISE
 
+#define DEBUG
+
 void write_rnd_mem_to_files(void* addr, size_t mem_size, size_t file_size_limit, size_t block_size);
 
 long aggregate_value_from_files(size_t mem_size, size_t file_size, int thread_count, long fold_start, long(agg_func)(long, long));

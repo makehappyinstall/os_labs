@@ -25,6 +25,10 @@ void* allocate_memory(void* addr, size_t size) {
     return mmap(addr, size, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
 }
 
+int deallocate_memory(void* addr, size_t size) {
+    return munmap(addr, size);
+}
+
 void fill_the_memory(void* addr, size_t size, const char* read_from, int thread_count) {
     pthread_t thread_ids[thread_count];
     struct to_fill_region regions[thread_count];
@@ -71,7 +75,9 @@ static void* filling_thread(void *arg){
                 exit(errno);
             } else {
                 successfully_read += read_bytes;
+#ifdef DEBUG
                 printf("FILLED %p with %lu bytes from %s (%lu remains)\n", write_to, read_bytes, region->read_from, region->size - successfully_read);
+#endif
             }
         }
     }

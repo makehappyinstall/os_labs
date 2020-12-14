@@ -36,7 +36,9 @@ void write_rnd_mem_to_files(void* addr, size_t mem_size, size_t file_size_limit,
     for (i = 0; i < file_count; i++) {
         const char* new_file_name = generate_file_name(i + 1);
         int new_file = create_file(new_file_name);
+#ifdef DEBUG
         printf("Writing to %s\n", new_file_name);
+#endif
         write_rnd_mem_to_file(new_file, addr, mem_size, block_size, file_size_limit);
         close(new_file);
     }
@@ -63,7 +65,9 @@ long aggregate_value_from_files(size_t mem_size, size_t file_size, int thread_co
         files[file_iter] = create_file(file_name);
         files_cv[file_iter] = (pthread_cond_t) PTHREAD_COND_INITIALIZER;
         files_mutex[file_iter] = (pthread_mutex_t) PTHREAD_MUTEX_INITIALIZER;
+#ifdef DEBUG
         printf("Aggregating from %s\n", file_name);
+#endif
     }
 
     for (file_iter=0, thread_iter=0; thread_iter < thread_count;) {
@@ -99,22 +103,28 @@ long aggregate_value_from_files(size_t mem_size, size_t file_size, int thread_co
 static void write_rnd_mem_to_file(int fd, void* mem_ptr, size_t mem_size, size_t block_size, size_t file_size) {
     unsigned long iter = 0;
     long long remains = file_size;
+#ifdef DEBUG
     puts("Started writing to file");
+#endif
     while (remains > 0) {
         size_t rnd_offset = rnd_offset(mem_size - block_size - 1);
         void* rnd_ptr = (char*) mem_ptr + rnd_offset;
 
+#ifdef DEBUG
         if (iter % 100000 == 0) {
             printf("Iter %lu: writing %lu bytes from (%p->%p<-%p) to %d (%lld left to write)\n",
                    iter, block_size, mem_ptr, rnd_ptr, (char*) mem_ptr + mem_size, fd, remains);
         }
-
+#endif
         write(fd, rnd_ptr, block_size);
 
         remains -= (long long) block_size;
         iter++;
     }
+
+#ifdef DEBUG
     puts("Finished writing to file");
+#endif
 }
 
 static void* aggregating_thread(void* arg) {
@@ -127,13 +137,18 @@ static void* aggregating_thread(void* arg) {
 
     switch (read_bytes) {
         case 0:
+#ifdef DEBUG
             printf("Finished reading file %d\n", cur_thread->fd);
+#endif
             break;
         case -1:
             perror("Error reading the file");
             exit(errno);
         default:
+#ifdef DEBUG
             printf("Read %lu bytes from %d\n", read_bytes, cur_thread->fd);
+#endif
+            break;
     }
 
     pthread_cond_signal(cur_thread->file_cv);
@@ -144,7 +159,9 @@ static void* aggregating_thread(void* arg) {
     for (i = 0; i < cur_thread->size; i++)
         local_fold_val = cur_thread->agg_func(local_fold_val, (long) read_chars[i]);
 
+#ifdef DEBUG
     printf("Thread computed aggregated value: %ld\n", local_fold_val);
+#endif
 
     *cur_thread->thread_result = local_fold_val;
     return 0;
@@ -161,7 +178,9 @@ static int create_file(const char* file_name) {
     int file = open(file_name, O_RDWR | O_CREAT, (mode_t) 0600);
 #ifdef POSIX_FADVISE
     posix_fadvise(file, 0, 0, POSIX_FADV_DONTNEED);
+    #ifdef DEBUG
     printf("Advised system to use NOCACHE with %s\n", file_name);
+    #endif
 #endif
     if (file == -1){
         perror("Error on creating the file");
