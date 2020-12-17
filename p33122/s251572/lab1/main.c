@@ -63,7 +63,6 @@ void* avg(void* args){
 	futex_wait(&(fut->fileFutexRead), 0);
 	int buffer[SIZE_BLOCK];
 	int file_avg;
-	// int summ = 0;
 	int avg = 0;
 	int offset;
 
@@ -97,11 +96,13 @@ int main()
 		mas[i].numberOfBytes = numberOfBytes;
 	}
 
-	for (int i = 0; i < NUM_THREADS_READ; ++i)
+	for (int i = 0; i < NUM_THREADS_READ; ++i){
 		pthread_create(&thread_read[i], NULL, readFile, &mas[i]);
+	}
 
-	for (int i = 0; i < NUM_THREADS_READ; ++i)
+	for (int i = 0; i < NUM_THREADS_READ; ++i){
 		pthread_join(thread_read[i], NULL);
+	}
 
 	if(SIZE_MEMORY % NUM_THREADS_READ != 0){
 		mas[NUM_THREADS_READ+1].fileDescriptor = fileRand;
@@ -137,12 +138,8 @@ int main()
 		}
 		for (int j = 0; j < NUM_THREADS_AVG; ++j){
  			pthread_join(thread_avg[j], NULL);
- 			printf("%d\n", j);
 		}
 	}
-	char x;
-	printf("%s ","Введите любую букву");
-	scanf("%s",&x);
 
 	free(memory); 
 	//after free
