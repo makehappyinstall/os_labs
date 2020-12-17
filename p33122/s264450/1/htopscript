@@ -1,0 +1,1 @@
+htop -p `ps -ef | grep "lab1" | grep -v grep | awk '{print $2}'`
