@@ -59,7 +59,6 @@ void* threadFillMemoryFunc(void* fillMemoryParams){
 }
 
 void* threadFillFilesFunc(void* args ){
-    //printf("threadFillFilesFunc entered\n");
     FillFilesParams *ffp = args;
     int fileFD, blockSize, blocksNum;;
     unsigned char *addressf;
@@ -68,7 +67,6 @@ void* threadFillFilesFunc(void* args ){
     struct stat buff;
     do{
         for(int i = 0; i < ffp->filesNum; ++i){
-            //printf("Filling file #%d\n", i);
             pthread_mutex_lock(&ffp->mutexes[i]);
             sprintf(filename, "file_%d", i);
             fileFD = open(filename, O_CREAT | O_WRONLY | O_DIRECT | O_TRUNC, __S_IREAD | __S_IWRITE);
@@ -85,7 +83,7 @@ void* threadFillFilesFunc(void* args ){
                 memcpy(wblock, addressf, blockSize);
 
                 if(pwrite(fileFD, wblock, blockSize, j*blockSize) == -1){
-                    printf("pwrite failed");
+                    perror("pwrite failed");
                     close(fileFD);
                     free(block);
                 }
@@ -100,7 +98,7 @@ void* threadFillFilesFunc(void* args ){
 }
 
 void* threadReadFilesFunc(void *args){
-    //printf("threadReadFilesFunc entered\n");
+    
     ReadFilesParams *rfp = args;
     char filename[8];
     long long blocksNum = E_MB_FILE_SIZE*1000*1000/G_BYTES_BLOCK_SIZE;
@@ -108,15 +106,12 @@ void* threadReadFilesFunc(void *args){
         for(int i = 0; i < rfp->filesNum; ++i){
             printf("reading file #%d\n", i);
             long long sum = 0;
-            printf("before sprintf\n");
             sprintf(filename, "file_%d", i);
             printf("before lock\n");
             if(!readCondition){
                 break;
             }
-            if(!pthread_mutex_trylock(&rfp->mutexes[i])){
-                continue;
-            }
+            pthread_mutex_lock(&rfp->mutexes[i]);
             printf("waiting cond for file #%d\n", i);
             pthread_cond_wait(&rfp->condVars[i], &rfp->mutexes[i]);
             
@@ -146,24 +141,20 @@ void fillMemory(){
 
     pthread_t threads[D_THREAD_NUM];
     
+    FillMemoryParams *fillMemoryParams = (FillMemoryParams *) malloc(D_THREAD_NUM * sizeof(FillMemoryParams));
     for(int i = 0; i < D_THREAD_NUM - 1; ++i){
-        FillMemoryParams fillMemoryParams;
-        fillMemoryParams.address = ptr; 
-        fillMemoryParams.address += bufSize * i;
-        fillMemoryParams.bufSize = bufSize;
-        pthread_create(&threads[i], NULL, threadFillMemoryFunc, &fillMemoryParams);
-        
+        fillMemoryParams[i].address = ptr + bufSize * i;
+        fillMemoryParams[i].bufSize = bufSize;
+        pthread_create(&threads[i], NULL, threadFillMemoryFunc, &fillMemoryParams[i]);
     }
-    FillMemoryParams fillMemoryParams;
-    fillMemoryParams.address = ptr;
-    fillMemoryParams.address += bufSize * (D_THREAD_NUM - 1);
-    fillMemoryParams.bufSize = lastThreadBufSize;
-    pthread_create(&threads[D_THREAD_NUM - 1], NULL, threadFillMemoryFunc, &fillMemoryParams);
+    fillMemoryParams[D_THREAD_NUM - 1].address = ptr + bufSize * (D_THREAD_NUM - 1);
+    fillMemoryParams[D_THREAD_NUM - 1].bufSize = lastThreadBufSize;
+    pthread_create(&threads[D_THREAD_NUM - 1], NULL, threadFillMemoryFunc, &fillMemoryParams[D_THREAD_NUM - 1]);
 
     for(int i = 0; i < D_THREAD_NUM; ++i){
         pthread_join(threads[i], NULL);
     }
-
+    free(fillMemoryParams);
     printf("After memory filling\n");
     getchar();
 }
@@ -173,17 +164,12 @@ void fillFiles(){
     FillFilesParams ffp;
     ffp.fileSize = E_MB_FILE_SIZE * 1000 * 1000;
     ffp.filesNum = A_MB / E_MB_FILE_SIZE;
-    //printf("ffp created\n");
 
     ReadFilesParams rfp;
     rfp.filesNum = ffp.filesNum;
-    //printf("rfp created\n");
     
-    // pthread_cond_t condVars[ffp.filesNum];
-    // pthread_mutex_t mutexArr[ffp.filesNum];
     pthread_cond_t *condVars = malloc(sizeof(pthread_cond_t) * ffp.filesNum);
     pthread_mutex_t *mutexArr = malloc(sizeof(pthread_mutex_t) * ffp.filesNum);
-    //printf("Initializing mutexes and cond vars\n");
     for(int i = 0; i < ffp.filesNum; ++i){
         pthread_mutex_init(&mutexArr[i], NULL);
         pthread_cond_init(&condVars[i], NULL);
@@ -193,18 +179,14 @@ void fillFiles(){
         rfp.condVars = condVars;
         rfp.mutexes = mutexArr;
     }
-
     
     pthread_t fileFillerThread;
     pthread_create(&fileFillerThread, NULL, threadFillFilesFunc, &ffp);
-    //printf("file fillers created\n");
-    
     
     pthread_t readFilesThreads[I_READ_THREAD_NUM];
     for(int i = 0; i < I_READ_THREAD_NUM; i++){
         pthread_create(&readFilesThreads[i], NULL, threadReadFilesFunc, &rfp);
     }
-    //printf("file readers created\n");
 
     sleep(1);
     printf("Press key to stop\n");
@@ -246,14 +228,14 @@ int main(){
     fillFiles();
 
     if(munmap(ptr, A_BYTES) == -1){
-        printf("Munmap failed\n");
-            return -1;
+        perror("Munmap failed");
+    }
+    else{
+        printf("After memory deallocation\n");
+        getchar();
     }
 
     fclose(randomf);  
-
-    printf("After memory deallocation\n");
-    getchar();
 
     return 0;
 }
