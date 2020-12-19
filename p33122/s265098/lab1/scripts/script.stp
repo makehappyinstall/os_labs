@@ -16,7 +16,7 @@ probe syscall.write{
     }
 }
 
-probe syscall.open{
+probe syscall.openat{
     if (pid() == target()){
         opens += 1
     }
@@ -29,7 +29,7 @@ probe syscall.close{
 }
 
 probe timer.ms(100){
-    printf("%d\t%d\t%d\t%d\t%16d\n", reads, writes, opens, closes, task_stime())
+    printf("%d\t%d\t%d\t%d\n", reads, writes, opens, closes)
     reads = 0
     writes = 0
     opens = 0
