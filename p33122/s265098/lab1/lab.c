@@ -122,7 +122,10 @@ void* threadReadFilesFunc(void *args){
                 if (fread(&buffer, 1, G_BYTES_BLOCK_SIZE, file) != G_BYTES_BLOCK_SIZE){
                     continue;
                 }
-                sum += atoi(buffer);
+                for(int k = 0; k < G_BYTES_BLOCK_SIZE; ++k){
+                    int num = *((int *) &buffer[k]);
+                    sum += num;
+                }
             }
             printf("Sum from file #%d = %lld\n", i, sum);
             fclose(file);
