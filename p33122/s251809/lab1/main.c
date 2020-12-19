@@ -57,7 +57,10 @@ void writeRandomBlock(int fd, int fileSize, int blocksNum, char * buffer, char *
     blockSize   = blockNumber == blocksNum ? fileSize - (G_BLOCK_SIZE*blocksNum) : G_BLOCK_SIZE;
 
     memcpy(buffer, vMem + startByte, blockSize);
-    pwrite(fd, buffer, blockSize, startByte);
+    if (pwrite(fd, buffer, blockSize, startByte) == -1) {
+      printf("Ошибка записи блока!\n");
+      return; 
+    };
 }
 
 void readRandomBlock(int fd, int fileSize, int blocksNum, char * buffer, char * vMem) {
@@ -69,7 +72,10 @@ void readRandomBlock(int fd, int fileSize, int blocksNum, char * buffer, char * 
     startByte   = blockNumber * G_BLOCK_SIZE;
     blockSize   = blockNumber == blocksNum ? fileSize - (G_BLOCK_SIZE*blocksNum) : G_BLOCK_SIZE;
 
-    pread(fd, buffer, blockSize, startByte);
+    if (pread(fd, buffer, blockSize, startByte) == -1) {
+      printf("Ошибка чтения блока!\n");
+      return;
+    };
     memcpy(vMem + startByte, buffer, blockSize);
 }
 
@@ -129,16 +135,16 @@ void* writeToFiles(int isFirstRun) {
 
         if(!isFirstRun) sem_wait(&semaphoreFile[i]);
 
-        
-        fd = open(filename,O_CREAT | O_WRONLY | O_DIRECT | O_TRUNC, __S_IREAD | __S_IWRITE);
+        fd = open(filename, O_CREAT | O_WRONLY | O_TRUNC, 00666);
+        // fd = open(filename,O_CREAT | O_WRONLY | O_DIRECT | O_TRUNC, __S_IREAD | __S_IWRITE); - doesn't work this way
         writeFile(E_FILE_SIZE/4*i, fd, E_FILE_SIZE);
 
         close(fd);
         sem_post(&semaphoreFile[i]);
     }
     sprintf(filename, "lab1_%i.bin", FILES_NUMBER);
-    fd = open(filename, O_CREAT | O_WRONLY | O_DIRECT | O_TRUNC, __S_IREAD | __S_IWRITE);
-
+    // fd = open(filename, O_CREAT | O_WRONLY | O_DIRECT | O_TRUNC, __S_IREAD | __S_IWRITE); - doesn't work this way
+    fd = open(filename, O_CREAT | O_WRONLY | O_TRUNC, 00666);
     writeFile(E_FILE_SIZE/4*FILES_NUMBER, fd, A_MEM_SIZE - (FILES_NUMBER * E_FILE_SIZE));
 
     close(fd);
