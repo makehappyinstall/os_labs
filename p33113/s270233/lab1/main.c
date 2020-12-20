@@ -23,6 +23,7 @@
 #define RANDOM_SRC "/dev/urandom"
 
 int infinity = 1;
+int infinity2 = 1;
 void *memory_region;
 int randomFd;
 
@@ -136,6 +137,7 @@ void *filesAnalyzeThread(void* vargPtr) {
 }
 
 void read_from_file(){
+  
     printf("Анализ содержимов файлов, используя %d потоков...\n", I);
     pthread_t threads[I];
     for (int i = 0; i < I; i++) {
@@ -143,28 +145,27 @@ void read_from_file(){
 	  }
     for (int i = 0; i < I; i++) {
        pthread_join(threads[i], NULL);
-	  }
+    }
+  
+	
 }
 
 int main(int argc, char *argv[]){
-    char flag;
     printf("До аллокации ([ENTER])\n");
     getchar();
-
-    while (infinity){
-      memory_region = malloc(A * megabyte_size);
+    memory_region = malloc(A * megabyte_size);
       printf("После аллокации ([ENTER])\n");
       getchar();
       write_to_memory();
-      write_to_file();
-      free_mem();
-      read_from_file();
-      puts("Остоновить беск. цикл!\n");
-      puts("y:yes");
-      scanf("%c", &flag);
-      if (flag == 'y'){
-        infinity=0;
-      }
-    }
+      int pid = fork();
+      if ( pid == 0 ) {
+    		printf( "This is being printed from the child process\n" );
+        	read_from_file();
+    	} else {
+    		printf( "This is being printed in the parent process:\n");
+        	write_to_file();
+		free_mem();
+    	}
+    
     return 0;
 }
