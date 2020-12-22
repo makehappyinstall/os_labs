@@ -1,0 +1,120 @@
+ ### Before allocation ###
+
+free -h
+              total        used        free      shared  buff/cache   available
+Mem:          9.2Gi        63Mi       9.1Gi       0.0Ki        84Mi       9.0Gi
+Swap:         3.0Gi          0B       3.0Gi
+
+maps:
+5556eaad0000-5556eaad1000 r--p 00000000 00:2d 41095346599789794          /mnt/c/Users/Admin/os-laba/main
+5556eaad1000-5556eaad2000 r-xp 00001000 00:2d 41095346599789794          /mnt/c/Users/Admin/os-laba/main
+5556eaad2000-5556eaad3000 r--p 00002000 00:2d 41095346599789794          /mnt/c/Users/Admin/os-laba/main
+5556eaad3000-5556eaad4000 r--p 00002000 00:2d 41095346599789794          /mnt/c/Users/Admin/os-laba/main
+5556eaad4000-5556eaad5000 rw-p 00003000 00:2d 41095346599789794          /mnt/c/Users/Admin/os-laba/main
+5556eaeae000-5556eaecf000 rw-p 00000000 00:00 0                          [heap]
+7f61e55d8000-7f61e55db000 rw-p 00000000 00:00 0 
+7f61e55db000-7f61e5600000 r--p 00000000 08:10 40242                      /usr/lib/x86_64-linux-gnu/libc-2.31.so
+7f61e5600000-7f61e5778000 r-xp 00025000 08:10 40242                      /usr/lib/x86_64-linux-gnu/libc-2.31.so
+7f61e5778000-7f61e57c2000 r--p 0019d000 08:10 40242                      /usr/lib/x86_64-linux-gnu/libc-2.31.so
+7f61e57c2000-7f61e57c3000 ---p 001e7000 08:10 40242                      /usr/lib/x86_64-linux-gnu/libc-2.31.so
+7f61e57c3000-7f61e57c6000 r--p 001e7000 08:10 40242                      /usr/lib/x86_64-linux-gnu/libc-2.31.so
+7f61e57c6000-7f61e57c9000 rw-p 001ea000 08:10 40242                      /usr/lib/x86_64-linux-gnu/libc-2.31.so
+7f61e57c9000-7f61e57cd000 rw-p 00000000 00:00 0 
+7f61e57cd000-7f61e57d4000 r--p 00000000 08:10 40255                      /usr/lib/x86_64-linux-gnu/libpthread-2.31.so
+7f61e57d4000-7f61e57e5000 r-xp 00007000 08:10 40255                      /usr/lib/x86_64-linux-gnu/libpthread-2.31.so
+7f61e57e5000-7f61e57ea000 r--p 00018000 08:10 40255                      /usr/lib/x86_64-linux-gnu/libpthread-2.31.so
+7f61e57ea000-7f61e57eb000 r--p 0001c000 08:10 40255                      /usr/lib/x86_64-linux-gnu/libpthread-2.31.so
+7f61e57eb000-7f61e57ec000 rw-p 0001d000 08:10 40255                      /usr/lib/x86_64-linux-gnu/libpthread-2.31.so
+7f61e57ec000-7f61e57f2000 rw-p 00000000 00:00 0 
+7f61e57fb000-7f61e57fc000 r--p 00000000 08:10 40229                      /usr/lib/x86_64-linux-gnu/ld-2.31.so
+7f61e57fc000-7f61e581f000 r-xp 00001000 08:10 40229                      /usr/lib/x86_64-linux-gnu/ld-2.31.so
+7f61e581f000-7f61e5827000 r--p 00024000 08:10 40229                      /usr/lib/x86_64-linux-gnu/ld-2.31.so
+7f61e5828000-7f61e5829000 r--p 0002c000 08:10 40229                      /usr/lib/x86_64-linux-gnu/ld-2.31.so
+7f61e5829000-7f61e582a000 rw-p 0002d000 08:10 40229                      /usr/lib/x86_64-linux-gnu/ld-2.31.so
+7f61e582a000-7f61e582b000 rw-p 00000000 00:00 0 
+7fffd13a3000-7fffd13c4000 rw-p 00000000 00:00 0                          [stack]
+7fffd13f9000-7fffd13fc000 r--p 00000000 00:00 0                          [vvar]
+7fffd13fc000-7fffd13fe000 r-xp 00000000 00:00 0                          [vdso]
+
+ ### After allocation ###
+
+free -h
+              total        used        free      shared  buff/cache   available
+Mem:          9.2Gi        64Mi       9.1Gi       0.0Ki        84Mi       9.0Gi
+Swap:         3.0Gi          0B       3.0Gi
+
+maps:
+dd6a8000-eb5a8000 rw-p 00000000 00:00 0 
+5556eaad0000-5556eaad1000 r--p 00000000 00:2d 41095346599789794          /mnt/c/Users/Admin/os-laba/main
+5556eaad1000-5556eaad2000 r-xp 00001000 00:2d 41095346599789794          /mnt/c/Users/Admin/os-laba/main
+5556eaad2000-5556eaad3000 r--p 00002000 00:2d 41095346599789794          /mnt/c/Users/Admin/os-laba/main
+5556eaad3000-5556eaad4000 r--p 00002000 00:2d 41095346599789794          /mnt/c/Users/Admin/os-laba/main
+5556eaad4000-5556eaad5000 rw-p 00003000 00:2d 41095346599789794          /mnt/c/Users/Admin/os-laba/main
+5556eaeae000-5556eaecf000 rw-p 00000000 00:00 0                          [heap]
+7f61e55d8000-7f61e55db000 rw-p 00000000 00:00 0 
+7f61e55db000-7f61e5600000 r--p 00000000 08:10 40242                      /usr/lib/x86_64-linux-gnu/libc-2.31.so
+7f61e5600000-7f61e5778000 r-xp 00025000 08:10 40242                      /usr/lib/x86_64-linux-gnu/libc-2.31.so
+7f61e5778000-7f61e57c2000 r--p 0019d000 08:10 40242                      /usr/lib/x86_64-linux-gnu/libc-2.31.so
+7f61e57c2000-7f61e57c3000 ---p 001e7000 08:10 40242                      /usr/lib/x86_64-linux-gnu/libc-2.31.so
+7f61e57c3000-7f61e57c6000 r--p 001e7000 08:10 40242                      /usr/lib/x86_64-linux-gnu/libc-2.31.so
+7f61e57c6000-7f61e57c9000 rw-p 001ea000 08:10 40242                      /usr/lib/x86_64-linux-gnu/libc-2.31.so
+7f61e57c9000-7f61e57cd000 rw-p 00000000 00:00 0 
+7f61e57cd000-7f61e57d4000 r--p 00000000 08:10 40255                      /usr/lib/x86_64-linux-gnu/libpthread-2.31.so
+7f61e57d4000-7f61e57e5000 r-xp 00007000 08:10 40255                      /usr/lib/x86_64-linux-gnu/libpthread-2.31.so
+7f61e57e5000-7f61e57ea000 r--p 00018000 08:10 40255                      /usr/lib/x86_64-linux-gnu/libpthread-2.31.so
+7f61e57ea000-7f61e57eb000 r--p 0001c000 08:10 40255                      /usr/lib/x86_64-linux-gnu/libpthread-2.31.so
+7f61e57eb000-7f61e57ec000 rw-p 0001d000 08:10 40255                      /usr/lib/x86_64-linux-gnu/libpthread-2.31.so
+7f61e57ec000-7f61e57f2000 rw-p 00000000 00:00 0 
+7f61e57fb000-7f61e57fc000 r--p 00000000 08:10 40229                      /usr/lib/x86_64-linux-gnu/ld-2.31.so
+7f61e57fc000-7f61e581f000 r-xp 00001000 08:10 40229                      /usr/lib/x86_64-linux-gnu/ld-2.31.so
+7f61e581f000-7f61e5827000 r--p 00024000 08:10 40229                      /usr/lib/x86_64-linux-gnu/ld-2.31.so
+7f61e5828000-7f61e5829000 r--p 0002c000 08:10 40229                      /usr/lib/x86_64-linux-gnu/ld-2.31.so
+7f61e5829000-7f61e582a000 rw-p 0002d000 08:10 40229                      /usr/lib/x86_64-linux-gnu/ld-2.31.so
+7f61e582a000-7f61e582b000 rw-p 00000000 00:00 0 
+7fffd13a3000-7fffd13c4000 rw-p 00000000 00:00 0                          [stack]
+7fffd13f9000-7fffd13fc000 r--p 00000000 00:00 0                          [vvar]
+7fffd13fc000-7fffd13fe000 r-xp 00000000 00:00 0                          [vdso]
+
+ ### After filling area ###
+
+free -h
+              total        used        free      shared  buff/cache   available
+Mem:          9.2Gi       166Mi       9.0Gi       0.0Ki        84Mi       8.9Gi
+Swap:         3.0Gi          0B       3.0Gi
+
+maps:
+dd6a8000-eb5a8000 rw-p 00000000 00:00 0 
+5556eaad0000-5556eaad1000 r--p 00000000 00:2d 41095346599789794          /mnt/c/Users/Admin/os-laba/main
+5556eaad1000-5556eaad2000 r-xp 00001000 00:2d 41095346599789794          /mnt/c/Users/Admin/os-laba/main
+5556eaad2000-5556eaad3000 r--p 00002000 00:2d 41095346599789794          /mnt/c/Users/Admin/os-laba/main
+5556eaad3000-5556eaad4000 r--p 00002000 00:2d 41095346599789794          /mnt/c/Users/Admin/os-laba/main
+5556eaad4000-5556eaad5000 rw-p 00003000 00:2d 41095346599789794          /mnt/c/Users/Admin/os-laba/main
+5556eaeae000-5556eaecf000 rw-p 00000000 00:00 0                          [heap]
+7f61e3dd5000-7f61e3dd6000 ---p 00000000 00:00 0 
+7f61e3dd6000-7f61e45d6000 rw-p 00000000 00:00 0 
+7f61e45d6000-7f61e45d7000 ---p 00000000 00:00 0 
+7f61e45d7000-7f61e4dd7000 rw-p 00000000 00:00 0 
+7f61e4dd7000-7f61e4dd8000 ---p 00000000 00:00 0 
+7f61e4dd8000-7f61e55db000 rw-p 00000000 00:00 0 
+7f61e55db000-7f61e5600000 r--p 00000000 08:10 40242                      /usr/lib/x86_64-linux-gnu/libc-2.31.so
+7f61e5600000-7f61e5778000 r-xp 00025000 08:10 40242                      /usr/lib/x86_64-linux-gnu/libc-2.31.so
+7f61e5778000-7f61e57c2000 r--p 0019d000 08:10 40242                      /usr/lib/x86_64-linux-gnu/libc-2.31.so
+7f61e57c2000-7f61e57c3000 ---p 001e7000 08:10 40242                      /usr/lib/x86_64-linux-gnu/libc-2.31.so
+7f61e57c3000-7f61e57c6000 r--p 001e7000 08:10 40242                      /usr/lib/x86_64-linux-gnu/libc-2.31.so
+7f61e57c6000-7f61e57c9000 rw-p 001ea000 08:10 40242                      /usr/lib/x86_64-linux-gnu/libc-2.31.so
+7f61e57c9000-7f61e57cd000 rw-p 00000000 00:00 0 
+7f61e57cd000-7f61e57d4000 r--p 00000000 08:10 40255                      /usr/lib/x86_64-linux-gnu/libpthread-2.31.so
+7f61e57d4000-7f61e57e5000 r-xp 00007000 08:10 40255                      /usr/lib/x86_64-linux-gnu/libpthread-2.31.so
+7f61e57e5000-7f61e57ea000 r--p 00018000 08:10 40255                      /usr/lib/x86_64-linux-gnu/libpthread-2.31.so
+7f61e57ea000-7f61e57eb000 r--p 0001c000 08:10 40255                      /usr/lib/x86_64-linux-gnu/libpthread-2.31.so
+7f61e57eb000-7f61e57ec000 rw-p 0001d000 08:10 40255                      /usr/lib/x86_64-linux-gnu/libpthread-2.31.so
+7f61e57ec000-7f61e57f2000 rw-p 00000000 00:00 0 
+7f61e57fb000-7f61e57fc000 r--p 00000000 08:10 40229                      /usr/lib/x86_64-linux-gnu/ld-2.31.so
+7f61e57fc000-7f61e581f000 r-xp 00001000 08:10 40229                      /usr/lib/x86_64-linux-gnu/ld-2.31.so
+7f61e581f000-7f61e5827000 r--p 00024000 08:10 40229                      /usr/lib/x86_64-linux-gnu/ld-2.31.so
+7f61e5828000-7f61e5829000 r--p 0002c000 08:10 40229                      /usr/lib/x86_64-linux-gnu/ld-2.31.so
+7f61e5829000-7f61e582a000 rw-p 0002d000 08:10 40229                      /usr/lib/x86_64-linux-gnu/ld-2.31.so
+7f61e582a000-7f61e582b000 rw-p 00000000 00:00 0 
+7fffd13a3000-7fffd13c4000 rw-p 00000000 00:00 0                          [stack]
+7fffd13f9000-7fffd13fc000 r--p 00000000 00:00 0                          [vvar]
+7fffd13fc000-7fffd13fe000 r-xp 00000000 00:00 0                          [vdso]
