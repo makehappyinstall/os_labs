@@ -21,6 +21,7 @@ int main(int argc, char *argv[])
         }
     }
     fwrite(buf, 1, final_length, file);
+    printf("Args were written to the file 'useless_output.txt'\n");
     fclose(file);
     return 0;
 }
