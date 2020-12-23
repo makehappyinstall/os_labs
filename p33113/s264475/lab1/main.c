@@ -13,12 +13,11 @@
 #define A_DATA_SIZE 313
 #define B_ADRRESS 0xE46AE4C0
 #define D_THREADS 89
-//#define D_THREADS 10
 #define RANDOM_SIZE 5000
 #define E_OUTPUT_SIZE 55
 #define G_BLOCK_SIZE 108
 #define I_AGG_THREADS 135
-//#define I_AGG_THREADS 10
+
 
 
 typedef struct {
@@ -57,13 +56,6 @@ int filesAmount;
 
 
 
-
-
-//   todo ОДЫН: Кажется что читать по одному байту за раз - так себе идея
-
-//    todo ДВА: Кажется что у вас тут доступ из нескольких тредов к переменной.
-//     Надо или сделать локальными (что лучше), или обложить синхронизацией
-//     randomByteIndex.
 
 void *WriteToMemory(void *args) {
     int randomByteIndex = RANDOM_SIZE + 1;
@@ -184,8 +176,8 @@ void *writeToFiles(void *thread_data) {
 void *readFiles(void *thread_data) {
     ThreadReaderData *data = (ThreadReaderData *) thread_data;
 
-    char filename[] = "lab1_0";
-    filename[5] = '0' + data->file_number;
+    char filename[] = "os_file_0";
+    filename[8] = '0' + data->file_number;
     int file_desc = -1;
 
     struct flock writeLock;
@@ -362,6 +354,7 @@ void aggregateData() {
     pthread_t *reader_threads = (pthread_t *) malloc(I_AGG_THREADS * sizeof(pthread_t));
     ThreadReaderData *reader_data = (ThreadReaderData *) malloc(I_AGG_THREADS * sizeof(ThreadReaderData));
     int file_number = 0;
+
     for (i = 0; i < I_AGG_THREADS; ++i) {
         if (file_number >= filesAmount) {
             file_number = 0;
@@ -374,7 +367,7 @@ void aggregateData() {
     for (i = 0; i < I_AGG_THREADS; ++i) {
         pthread_create(&(reader_threads[i]), NULL, readFiles, &reader_data[i]);
     }
-    for (i = 0; i < I_AGG_THREADS; i++) {
+    for (i = 0; i < I_AGG_THREADS; ++i) {
         pthread_join(reader_threads[i], NULL);
     }
 

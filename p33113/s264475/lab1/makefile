@@ -12,4 +12,4 @@ main.o:
 	$(C) $(C_FLAGS) -c main.c
 
 clean:
-	rm -f main Main.o os_file_* output
+	rm -f main main.o os_file_* output
