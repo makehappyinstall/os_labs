@@ -1,12 +1,5 @@
-#include <pthread.h>
-#include <stdlib.h>
-#include <stdio.h>
-
-struct MemoryFillerThreadParams {
-    int *startAddress;
-    size_t numbersCount;
-    int *infinityLoop;
-};
+#include "MemoryFiller.h"
+#include <time.h>
 
 void *MemoryFillThread(void *rawParams) {
 
@@ -16,7 +9,7 @@ void *MemoryFillThread(void *rawParams) {
 
         for (size_t i = 0; i < params->numbersCount; ++i) {
 
-            params->startAddress[i] = rand();
+            params->startAddress[i] = rand_r((unsigned) time(NULL));
 
         }
 
