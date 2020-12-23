@@ -3,10 +3,8 @@
 #include <pthread.h>
 #include <math.h>
 #include <time.h>
-#include "MemoryFiller.c"
-#include "FileIO.c"
-
-
+#include "MemoryFiller.h"
+#include "FileIO.h"
 //A=31;
 //B=0xC9E9A85E;
 //C=mmap;
@@ -18,11 +16,14 @@
 //I=16;
 //J=sum;
 //K=futex;
+int isLooping = 1;
 
 int main() {
 
-    srand((unsigned) time(NULL));
+//    srand((unsigned) time(NULL));
+
     int A = 31; // область памяти мб
+//    void *B = (void *) 0x00000001; // адрес начала области памяти
     void *B = (void *) 0xC9E9A85E; // адрес начала области памяти
     // C=mmap; способ выделения памяти
     size_t D = 37; // кол-во потоков на запись в память
@@ -34,7 +35,6 @@ int main() {
     // J=sum; фгрегирующая функция
     // K=futex; примитив синхронизации при вв фйлов
 
-    int isLooping = 1;
 
 #pragma region Выделяем память
 
@@ -126,7 +126,6 @@ int main() {
 
     pthread_create(&writerThreads[filesCount - 1], NULL, FileWriterThread, &writerThreadParams[filesCount - 1]);
 
-
 #pragma  endregion пишем в файлы
 
 #pragma region читаем файлы
@@ -148,15 +147,13 @@ int main() {
 
 #pragma  endregion читаем файлы
 
-
-    printf("infinity Loop");
+    printf("\ninfinity Loop");
     getchar();
     printf("stopping");
     isLooping = 0;
     //ожидаем завершения всех потоков генерации, Null - результат возвращаемый потоком
     for (int i = 0; i < D; i++)
         pthread_join(fillerThreads[i], NULL);
-
 
     for (int i = 0; i < filesCount; i++) {
         pthread_join(writerThreads[i], NULL);
@@ -166,18 +163,17 @@ int main() {
         pthread_join(readerThreads[i], NULL);
     }
 
-
     for (size_t i = 0; i < filesCount - 1; ++i) {
         pthread_mutex_destroy(&FileMutexes[i]);
     }
 
-    printf("Before deallocation");
+    printf("\nBefore deallocation");
     getchar();
 
     VirtualFree(start, 0, MEM_RELEASE);
 
     printf("After deallocated");
-//    printf("min %d", min);
+//    printf("sum %d", sum);
     getchar();
     return 0;
 }
