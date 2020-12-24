@@ -1,10 +1,10 @@
 CC := gcc
-FLAGS := -pedantic-errors -Wall -Werror -pthread -o
+FLAGS := -pedantic-errors -Wall -Werror -pthread
 
 all: clean build run
 
 build: main.c
-	$(CC) $(FLAGS) main main.c
+	$(CC) $(FLAGS) -o main main.c
 
 run:
 	./main

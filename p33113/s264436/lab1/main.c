@@ -79,7 +79,6 @@ int main(void) {
 
     while (loopFlag) {
         allocatedMemory = malloc(MEMORY_SIZE_MB * MB_SIZE);
-        writeToMemory();
         printf("\nFilling memory with random numbers in %d threads...\n", WRITE_THREADS);
         writeToMemory();
         puts("Writing data to files...");
