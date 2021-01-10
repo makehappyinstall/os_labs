@@ -4,8 +4,7 @@ CFLAGS = -pedantic-errors -Wall -Werror -g -O0 # -O2
 LDFLAGS = -pthread
 
 BUILDPATH = build
-SOURCES = main.c threadpool.c
-HEADERS = threadpool.h
+SOURCES = main.c
 TARGET = main
 
 OBJECTS = $(SOURCES:%.c=$(BUILDPATH)/%.o)
@@ -16,7 +15,7 @@ OBJECTS = $(SOURCES:%.c=$(BUILDPATH)/%.o)
 all: build
 
 cltmp:
-	@rm -v ?????????.?.bin 2> /dev/null ; true
+	@rm -v ?????????_?.bin 2> /dev/null ; true
 
 clean: cltmp
 	@rm -vrf $(BUILDPATH) 2> /dev/null ; true
@@ -26,7 +25,7 @@ build: $(TARGET)
 
 %.c:
 
-$(OBJECTS): $(BUILDPATH)/%.o : %.c $(HEADERS)
+$(OBJECTS): $(BUILDPATH)/%.o : %.c 
 	@mkdir -p $(@D)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
