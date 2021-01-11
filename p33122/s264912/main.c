@@ -38,6 +38,8 @@ int main(int args, char *argv[]){
     getchar();
     //void* memory = (void *) 0x5845DAC9;
 
+    // memory mapping - по факту отражение на память
+
     // mmap(addr, lenght, prot, flags, fd, offset)
     // addr = memory
     // length = 46 mb = 46*1024*1024 b
@@ -57,6 +59,7 @@ int main(int args, char *argv[]){
 
     while(1){
 
+        // тут проиходит запись в память рандомных чисел по нужному нам адресу, запись идет в D потоках
         long total_size = A * 1024* 1024;
         //long remaining_size = total_size;
         long size_for_one_thread = 3014656; //total_size / 16
@@ -81,20 +84,25 @@ int main(int args, char *argv[]){
             pthread_join(thread_id[i], NULL);
         }
         free(portions);
+        //ну все выделели теперь освободили память и можно идти дальше по заданию
 
+
+        //посчитаем сколько файлов и их размерчики
         int file_count = (int) ceil((double) A / (double) E);
         int memory_left = A * 1024 * 1024;
         int file_size = E * 1024 * 1024;
 
         for (int i = 0; i < file_count; i++){
+            //создали файлики записали в них память
             int new_file = create_wronly_file(i+1);
             memory_left -= file_size;
-            read_from_memory(new_file, (char*) memory + file_size * i + min(0, memory_left));
+            read_from_memory(new_file, (char*) memory + file_size * i + min(0, memory_left));//эта штука учитывает смещение
             close(new_file);
         }
 
         init_sem();
 
+        //а теперь будем считать сумму в 101 потоке
         pthread_t threads_id[I];
         int threads_per_file = I / file_count;
         long size_per_thread = file_size / threads_per_file;
@@ -122,7 +130,7 @@ int main(int args, char *argv[]){
 
             pthread_create(threads_id + thread_iter, NULL, read_and_sum, tmp_state);
 
-            // INCREMENT
+            //эта штука понимает из какого по номеру файла надо брать данные
             thread_iter++;
             if (file_iter + 1 >= file_count) {
                 offset += size_per_thread;
@@ -132,7 +140,7 @@ int main(int args, char *argv[]){
 
 
         unsigned long long int sum = 0;
-
+        //ну теперь берем все из наших потоков и тадам ответ
         for(size_t i = 0; i < I; i++){
             void* tmp;
             pthread_join(threads_id[i], &(tmp));
@@ -189,7 +197,7 @@ void read_from_memory(int file, const char* memory_pointer){
     size_t answer;
 
     while (remains > 0) {
-        answer = write(file, memory_pointer, min(sizeof(char)*G, remains));
+        answer = write(file, memory_pointer, min(sizeof(char)*G, remains));//remove
         if (answer == -1){
             perror("Cant write to file");
             return;
