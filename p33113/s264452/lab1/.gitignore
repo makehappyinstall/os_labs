@@ -1,0 +1,6 @@
+forks
+*.out
+*.o
+main
+
+dump.* 
