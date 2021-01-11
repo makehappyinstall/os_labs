@@ -217,10 +217,8 @@ void file_write() {
     }
     char f_name[16];
     for (int i = 0; i < f_amount; i++) {
-
         sprintf(f_name, "%s_%d.bin", filename, i);
         f_ds[i] = open(f_name, O_RDWR | O_CREAT, (mode_t) 0600);
-        posix_fadvise(f_ds[i], 0, 0, POSIX_FADV_DONTNEED);
         if (f_ds[i] == -1) {
             perror("Can't open file\n");
             exit(-1);
