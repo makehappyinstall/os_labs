@@ -20,9 +20,9 @@
 #define DEBUG_THR_AGG_IO 0
 #define DEBUG_THR_NUMBERS 0
 #define MEM_ALLOC_ACTION_STOP 0
-#define STOP_AT_START 1
+#define STOP_AT_START 0
 
-#define INFTY_LOOP 0
+#define INFTY_LOOP 1
 #define BYTES_IN_MB 1024*1024
 #define MEM_SIZE 224 * BYTES_IN_MB
 #define START_MEM_CELL_P 0x4B7A441D
@@ -174,6 +174,8 @@ void joinMemFillThreads() {
     for (int i = 0; i < MEM_THR_AMOUNT; ++i) {
         pthread_join(mem_thr[i].thread_id, &res);
     }
+
+    close(mem_thr[0].fd);
 }
 
 
@@ -228,6 +230,8 @@ void * fillFile(void * args) {
             thread_number, (void *) start, filled, FILE_SIZE, size_part, bytes, offset
         );
     }
+
+    close(fd);
 
     if (DEBUG_THR) printf("THR %2d FILE END\n", thread_number);
 
@@ -306,6 +310,8 @@ void * countFileMaxNumber(void * args) {
         max_c = max(max_c, getMaxFromCharArray(buffer, IO_BLOCK_SIZE, DEBUG_THR_AGG_IO));
         if (DEBUG_THR_AGG_IO) printf("THR %2d MAX for FILE %d read part bytes: %d max: %d\n", thread_number, file_number, bytes, max_c);
     } while (bytes > 0);
+
+    close(fd);
 
     if (DEBUG_THR) printf("THR %2d MAX for FILE %d END max: %d\n", thread_number, file_number, max_c);
 
