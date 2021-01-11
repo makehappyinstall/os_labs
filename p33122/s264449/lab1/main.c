@@ -19,9 +19,10 @@
 #define DEBUG_THR_FILE_IO 0
 #define DEBUG_THR_AGG_IO 0
 #define DEBUG_THR_NUMBERS 0
-#define MEM_ALLOC_ACTION_STOP 1
+#define MEM_ALLOC_ACTION_STOP 0
+#define STOP_AT_START 1
 
-#define INFTY_LOOP 1
+#define INFTY_LOOP 0
 #define BYTES_IN_MB 1024*1024
 #define MEM_SIZE 224 * BYTES_IN_MB
 #define START_MEM_CELL_P 0x4B7A441D
@@ -183,6 +184,13 @@ void pauseRun(char * msg) {
 }
 
 
+void pauseStart(char * msg) {
+    if (!STOP_AT_START) return;
+    printf("%s", msg);
+    getchar();
+}
+
+
 void * fillFile(void * args) {
     thread_info * attrs = ((thread_info *) args);
     int thread_number = (attrs->thread_number);
@@ -331,6 +339,7 @@ void joinMaxCountFilesThreads() {
 
 int main(int argc, char const *argv[]) {
     do {
+        pauseStart("START (Enter)\n");
         pauseRun("\nBEFORE ALLOC (Enter)\n");
         allocateMem();
         pauseRun("\nAFTER ALLOC (Enter)\n");
