@@ -34,6 +34,8 @@
  * 7. Используя stap построить графики системных характеристик.
  */
 
+#define _GNU_SOURCE
+
 #include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
@@ -59,9 +61,6 @@
 #define FILE_OPEN_MODE S_IWUSR | S_IRUSR | S_IRGRP | S_IROTH
 #define FILE_TEMPLATE "/tmp/os-rand-file-%lu"
 
-static pthread_mutex_t tmp_mtx[FILE_COUNT];
-static int tmp_fd[FILE_COUNT];
-
 static volatile int thread_initialized;
 static volatile int thread_terminate = 0;
 
@@ -79,38 +78,43 @@ struct read_thread_args {
     size_t size;
 };
 
-static void mtx_setup( void ) {
+static void fd_setup( int * tmp_fd ) {
     for (size_t i = 0; i < FILE_COUNT; i++) {     
         char filename[22];
-        sprintf(filename, FILE_TEMPLATE, i);
+        snprintf(filename, 22, FILE_TEMPLATE, i);
 
-        /* create a sparse tmp file and a mutex for it (1 slot) */
+        /* create a sparse tmp file */
         tmp_fd[i] = open(filename, FILE_OPEN_FLAGS, FILE_OPEN_MODE);
         ftruncate(tmp_fd[i], FILE_SIZE);
+    }
+}
 
-        pthread_mutex_init(&tmp_mtx[i], NULL);
+static void fd_destroy( int * tmp_fd ) {
+    for (size_t i = 0; i < FILE_COUNT; i++) {
+        close(tmp_fd[i]);
     }
 }
 
 static void do_write_block(size_t count, char *start, size_t size) {
-    thread_initialized = 1;
+    int tmp_fd[FILE_COUNT] = {0};
+    fd_setup(tmp_fd);
+
     size_t lock_count = 0;
+    thread_initialized = 1;
     while (!thread_terminate) {
         /* write random bytes into designated memory space */
         getrandom(start, size, 0);
         
         /* acquire a lock on a random file */
         size_t num = rand() % FILE_COUNT;
-        pthread_mutex_lock(&tmp_mtx[num]);
+        flock(tmp_fd[num], LOCK_EX);
 
-        /* if thread has to be terminated, unlock mutex and do not perform any actions */
+        /* if thread has to be terminated, unlock file and do not perform any actions */
         if (thread_terminate) {
-            pthread_mutex_unlock(&tmp_mtx[num]);
+            flock(tmp_fd[num], LOCK_UN);
             break;
         }
-        
-        /* exclusive file lock protects the file from any other processes */
-        flock(tmp_fd[num], LOCK_EX);
+
         lock_count++;
         fprintf(stderr, "[write %3lu] ACQUIRE (for the %lu time)\n", count, lock_count);
 
@@ -124,8 +128,8 @@ static void do_write_block(size_t count, char *start, size_t size) {
         /* release lock */
         fprintf(stderr, "[write %3lu] RELEASE\n", count);
         flock(tmp_fd[num], LOCK_UN);
-        pthread_mutex_unlock(&tmp_mtx[num]);
     }
+    fd_destroy(tmp_fd);
     fprintf(stderr, "[write %3lu] Thread terminated\n", count);
 }
 
@@ -153,20 +157,21 @@ static void write_threads_init(char *p) {
 }
 
 static void do_read_block(size_t count, size_t num, off_t offset, size_t size) {
-    thread_initialized = 1;
-    size_t lock_count = 0;
-    while (!thread_terminate) {
-        /* acquire lock on a file */
-        pthread_mutex_lock(&tmp_mtx[num]);
+    int tmp_fd[FILE_COUNT] = {0};
+    fd_setup(tmp_fd);
 
-        /* if thread has to be terminated, unlock mutex and do not perform any actions */
+    size_t lock_count = 0;
+    thread_initialized = 1;
+    while (!thread_terminate) {
+        /* exclusive file lock */
+        flock(tmp_fd[num], LOCK_EX);
+
+        /* if thread has to be terminated, unlock file and do not perform any actions */
         if (thread_terminate) {
-            pthread_mutex_unlock(&tmp_mtx[num]);
+            flock(tmp_fd[num], LOCK_UN);
             break;
         }
 
-        /* exclusive file lock protects the file from any other processes */
-        flock(tmp_fd[num], LOCK_EX);
         lock_count++;
         fprintf(stderr, "[read %4lu] ACQUIRE (for the %lu time)\n", count, lock_count);
 
@@ -184,11 +189,11 @@ static void do_read_block(size_t count, size_t num, off_t offset, size_t size) {
         /* release lock */
         fprintf(stderr, "[read %4lu] RELEASE, aggregated result: %u\n", count, min);
         flock(tmp_fd[num], LOCK_UN);
-        pthread_mutex_unlock(&tmp_mtx[num]);
 
         /* read threads are too lightweight, they are eating cpu time. Let them rest for at least 1 us */
         usleep(1);
     }
+    fd_destroy(tmp_fd);
     fprintf(stderr, "[read %4lu] Thread terminated\n", count);
 }
 
@@ -221,16 +226,11 @@ static void close_threads(void) {
     thread_terminate = 1;
     for (size_t i = 0; i < WRITE_THREADS_COUNT; i++) pthread_join(write_threads[i], NULL);
     for (size_t i = 0; i < READ_THREADS_COUNT; i++) pthread_join(read_threads[i], NULL);
-    for (size_t i = 0; i < FILE_COUNT; i++)  {
-        close(tmp_fd[i]);
-        pthread_mutex_destroy(&tmp_mtx[i]);
-    }
     puts("All threads are terminated");
 }
 
 int main( void ) {
     srand((unsigned) time(NULL));
-    mtx_setup();
 
     while (getchar() != '\n'); /* Before allocation */
     char *p = malloc(MEMORY_SIZE);
