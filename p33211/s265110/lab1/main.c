@@ -101,7 +101,7 @@ _Noreturn void *fileReader(void *arg) {
             if (fread(buf, 1, G, fd) != G) {
                 continue;
             }
-            int localMax = find_max((int *) buf, G / 4);
+            int localMax = find_max((int *) buf, G / sizeof(int));
             if (localMax > max) {
                 max = localMax;
             }
@@ -129,7 +129,7 @@ int main() {
     }
     //filling our mapped area with random numbers in D threads
     char *randomnums = "/dev/urandom";
-    long block = A * pow(2, 20) / D;
+    long block = A * 1024 * 1024 / D;
     MemoryFillerArgs memoryFillerArgs[D];
     pthread_t memoryFillerThreads[D - 1];
     for (int i = 0; i < D - 1; i++) {
@@ -141,7 +141,7 @@ int main() {
     }
     //memoryFillerThreads number D
     memoryFillerArgs[D - 1].adr = startAddress;
-    memoryFillerArgs[D - 1].bytes = block + (int) (A * pow(2, 20)) % D;
+    memoryFillerArgs[D - 1].bytes = block + (int) (A * 1024 * 1024)) % D;
     memoryFillerArgs[D - 1].randomnums = randomnums;
     pthread_create(&memoryFillerThreads[D - 1], NULL, memoryFiller, &memoryFillerArgs[D - 1]);
     startAddress -= block * (D - 1);
@@ -193,7 +193,7 @@ int main() {
     getchar();
     getchar();
     //unmapping our area of A MB
-    munmap(startAddress, A * pow(2, 20));
+    munmap(startAddress, A * 1024 * 1024);
     printf("Memory was deallocated");
     getchar();
     getchar();
