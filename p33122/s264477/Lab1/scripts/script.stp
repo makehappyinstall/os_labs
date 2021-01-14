@@ -1,0 +1,25 @@
+global opens, reads, writes
+
+probe begin {
+	printf("Running stap script.\n")
+	printf("%8s %8s %8s %8s\n", "open", "read", "write")
+}
+probe syscall.open {
+if (pid() == target()) 
+	opens++
+}
+probe syscall.pread {
+if ( pid() == target()) 
+	reads++
+}
+
+probe syscall.write {
+if (pid() == target()) 
+	writes++
+}
+probe timer.ms(1000) {
+	printf("%8d %8d %8d %8d\n", opens, reads, writes)
+	reads=0
+	writes=0
+	open=0
+}
