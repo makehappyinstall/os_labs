@@ -18,7 +18,6 @@
 #include <getopt.h>
 #include <stdnoreturn.h>
 
-
 #define MALLOC_SIZE 132999680 // 133 MB
 #define FILE_SIZE 146999808 // 147 MB
 #define RANDOM_SRC "/dev/urandom"
@@ -41,10 +40,10 @@ void* fill_thread_handler(void* varg_ptr) {
         chunk_size += MALLOC_SIZE - chunk_size * FILL_THREADS;
     }
 
-    ssize_t result = read(random_fd, ptr_start, chunk_size);
+    int result = read(random_fd, ptr_start, chunk_size);
 
     if (result == -1) {
-        printf("ERROR!!! Can't fill memory for pointer='%p' with size='%d', errno='%d'\n", ptr_start, chunk_size, errno);
+        fprintf(stderr, "ERROR!!! Can't fill memory for pointer='%p' with size='%d', errno='%d'\n", ptr_start, chunk_size, errno);
         exit(-1);
     }
 }
@@ -55,7 +54,7 @@ void generate_data() {
     region_ptr = malloc(MALLOC_SIZE);
     
     if (region_ptr == NULL) {
-        printf("Failed to perform malloc, errno='%d'\n", errno);
+        fprintf(stderr, "Failed to perform malloc, errno='%d'\n", errno);
         exit(-1);
     } else {
         printf("Memory allocated for address='%p'\n", region_ptr);
@@ -66,7 +65,7 @@ void generate_data() {
     random_fd = open(RANDOM_SRC, O_RDONLY);
     
     if (random_fd < 0) {
-        printf("ERROR!!! Failed to open file='%s', errno='%d'\n", RANDOM_SRC, errno);
+        fprintf(stderr, "ERROR!!! Failed to open file='%s', errno='%d'\n", RANDOM_SRC, errno);
         exit(-1);
     }
 
@@ -96,7 +95,7 @@ void write_single_file(char* file_name, void* start, int size) {
     int fd = open(file_name, O_CREAT | O_WRONLY | O_DIRECT, S_IRWXU | S_IRGRP | S_IROTH);
 
     if (fd < 0) {
-        printf("ERROR!!! Failed to open file='%s' for writing, errno='%d'\n", file_name, errno);
+        fprintf(stderr, "ERROR!!! Failed to open file='%s' for writing, errno='%d'\n", file_name, errno);
         exit(-1);
     }
 
@@ -111,12 +110,12 @@ void write_single_file(char* file_name, void* start, int size) {
 
         void* write_start_ptr = start + i * BLOCK_SIZE;
 
-        ssize_t wrote_bytes = write(fd, write_start_ptr, effective_block_size);
+        int wrote_bytes = write(fd, write_start_ptr, effective_block_size);
         printf("Writing file='%s' in progress: %d/%d blocks\r", file_name, i, blocks_number);
         fflush(stdout);
 
         if (wrote_bytes == -1) {
-            printf("\nERROR!!! Failed to write file='%s', errno='%d'", file_name, errno);
+            fprintf(stderr, "\nERROR!!! Failed to write file='%s', errno='%d'", file_name, errno);
             exit(-1);
         }
     }
@@ -152,7 +151,7 @@ void analyze_file(char* file_name) {
     int fd = open(file_name, O_CREAT | O_RDONLY, S_IRWXU | S_IRGRP | S_IROTH);
 
     if (fd < 0) {
-        printf("WARNING!!! Can't open file='%s' for reading!\n", file_name);
+        printf(stderr, "WARNING!!! Can't open file='%s' for reading!\n", file_name);
         return;
     }
 
@@ -161,14 +160,14 @@ void analyze_file(char* file_name) {
     off_t size = lseek(fd, 0L, SEEK_END);
     lseek(fd, 0, SEEK_SET);
 
-    __uint8_t* data = (__uint8_t*) malloc(size);
-    ssize_t read_bytes = read(fd, data, size);
+    u_int8_t* data = (u_int8_t*) malloc(size);
+    int read_bytes = read(fd, data, size);
 
     sem_post(&semaphore);
     close(fd);
 
-    __uint8_t min = data[0];
-    for (size_t i = 1; i < read_bytes / sizeof(__uint8_t); i++) {
+    u_int8_t min = data[0];
+    for (int i = 1; i < read_bytes / sizeof(u_int8_t); i++) {
         if (data[i] < min)
             min = data[i];
     }
