@@ -1,0 +1,12 @@
+boot: cdrom
+ata0-slave: type=cdrom, path=test.bin, status=inserted
+cpu: count=1, reset_on_triple_fault=0, ips=1000000
+megs: 128
+pci: enabled=1, chipset=i440fx, slot1=pcivga #, slot2=ne2k
+#ne2k: ioaddr=0x300, irq=9, mac=b0:c4:20:00:00:00, ethmod=fbsd, ethdev=en0
+usb_uhci: enabled=1, port1=mouse
+mouse: enabled=0
+magic_break: enabled=1
+port_e9_hack: enabled=1
+debugger_log: debugger.log
+display_library: x, options="gui_debug"
