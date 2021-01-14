@@ -40,11 +40,19 @@ void* fill_thread_handler(void* varg_ptr) {
         chunk_size += MALLOC_SIZE - chunk_size * FILL_THREADS;
     }
 
-    int result = read(random_fd, ptr_start, chunk_size);
+    int bytes_read = 0;
+    while (bytes_read < chunk_size) {
+        int ret = read(random_fd, ptr_start + bytes_read, chunk_size - bytes_read);
 
-    if (result == -1) {
-        fprintf(stderr, "ERROR!!! Can't fill memory for pointer='%p' with size='%d', errno='%d'\n", ptr_start, chunk_size, errno);
-        exit(-1);
+        if (ret == 0)
+            break;
+
+        if (ret == -1) {
+            fprintf(stderr, "ERROR!!! Can't fill memory for pointer='%p' with size='%d', errno='%d'\n", ptr_start, chunk_size, errno);
+            exit(-1);
+        }
+
+        bytes_read += ret;
     }
 }
 
@@ -110,14 +118,24 @@ void write_single_file(char* file_name, void* start, int size) {
 
         void* write_start_ptr = start + i * BLOCK_SIZE;
 
+        int bytes_wrote = 0;
+        while (bytes_wrote < effective_block_size) {
+            int ret = write(fd, write_start_ptr + bytes_wrote, effective_block_size - bytes_wrote);
+
+            if (ret == 0)
+                break;
+
+            if (ret == -1) {
+                fprintf(stderr, "\nERROR!!! Failed to write file='%s', errno='%d'", file_name, errno);
+                exit(-1);
+            }
+
+            bytes_wrote += ret;
+        }
+
         int wrote_bytes = write(fd, write_start_ptr, effective_block_size);
         printf("Writing file='%s' in progress: %d/%d blocks\r", file_name, i, blocks_number);
         fflush(stdout);
-
-        if (wrote_bytes == -1) {
-            fprintf(stderr, "\nERROR!!! Failed to write file='%s', errno='%d'", file_name, errno);
-            exit(-1);
-        }
     }
 
     sem_post(&semaphore);
@@ -161,13 +179,27 @@ void analyze_file(char* file_name) {
     lseek(fd, 0, SEEK_SET);
 
     u_int8_t* data = (u_int8_t*) malloc(size);
-    int read_bytes = read(fd, data, size);
+
+    int bytes_read = 0;
+    while (bytes_read < size) {
+        int ret = read(fd, data + bytes_read, size - bytes_read);
+
+        if (ret == 0)
+            break;
+
+        if (ret == -1) {
+            fprintf(stderr, "ERROR!!! Can't read file='%s'\n", file_name);
+            exit(-1);
+        }
+
+        bytes_read += ret;
+    }
 
     sem_post(&semaphore);
     close(fd);
 
     u_int8_t min = data[0];
-    for (int i = 1; i < read_bytes / sizeof(u_int8_t); i++) {
+    for (int i = 1; i < bytes_read / sizeof(u_int8_t); i++) {
         if (data[i] < min)
             min = data[i];
     }
