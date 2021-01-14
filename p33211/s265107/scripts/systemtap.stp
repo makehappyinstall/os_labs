@@ -1,0 +1,34 @@
+global open, read, write, close
+
+
+probe syscall.open {
+	if (pid() == target()) {
+		open += 1
+	}
+}
+
+probe syscall.read {
+	if (pid() == target()) {
+		read += 1
+	}
+}
+
+probe syscall.write {
+	if (pid() == target()){
+		write += 1
+	}
+}
+
+probe syscall.close {
+	if (pid() == target()) {
+		close += 1
+	}
+}
+
+probe timer.ms(100) {
+	printf("%d,%d,%d,%d,%d\n", task_stime(), open, read, write, close)
+	open = 0
+	read = 0
+	write = 0
+	close = 0
+}
