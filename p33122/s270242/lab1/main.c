@@ -20,7 +20,9 @@ pthread_cond_t cv = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 const size_t MEMORY_SIZE = A * 1024 * 1024;
 const size_t FILE_SIZE = E * 1024 * 1024;
-const size_t BLOCK_SIZE = G * sizeof(char);
+const size_t MEMORY_SLICE = MEMORY_SIZE / D;
+FILE *file_urand;
+
 
 //2 step
 void *file_writer(void *start_address)
@@ -34,9 +36,11 @@ void *file_writer(void *start_address)
         FILE *file_write = fopen("target_file", "w");
 
         if (file_write != NULL)
-            fwrite(start_address, BLOCK_SIZE, FILE_SIZE / BLOCK_SIZE, file_write);
-        else
+            fwrite(start_address, G, FILE_SIZE / G, file_write);
+        else {
             fprintf(stderr, "FileNotFoundError");
+            return NULL;
+        }
 
         fclose(file_write);
 
@@ -57,22 +61,36 @@ void *file_reader()
 
         int fd_read = open("target_file", O_RDONLY);
         int mx = INT_MIN;
-        int value;
+        int value[G];
+        int block = G * 4;
 
         if (fd_read == -1)
+        {
             fprintf(stderr, "FileNotFoundError");
+            return NULL;
+        }
 
-        while (read(fd_read, &value, sizeof(int)) >= sizeof(int)) {
-            read(fd_read, &value, sizeof(int));
+        while (read(fd_read, &value, block) >= block) {
+            read(fd_read, &value, block);
 
-            if (mx < value) mx = value;
+            for (int i = 0; i < G; i++) {
+                if (mx < value[i]) mx = value[i];
+            }
         }
 
         close(fd_read);
 
         printf("Result: %d\n", mx);
+
         pthread_mutex_unlock(&mutex);
         printf("Thread unlock the mutex on read\n");
+    }
+}
+
+void* fill_memory(void * address)
+{
+    while (1) {
+        fread(address, MEMORY_SLICE, 1, file_urand);
     }
 }
 
@@ -80,27 +98,28 @@ int main() {
     //1 step
 //    printf("Before allocation\n");
 //    getchar();
-    void *start_address = malloc(MEMORY_SIZE + 1);
-
-//        printf("After allocation\n");
-//        getchar();
     pthread_t threads[D];
-    FILE *file_urand;
+    void *main_address = malloc(MEMORY_SIZE + 1);
     file_urand = fopen("/dev/urandom", "r");
 
-    void* fill_memory() { fread(start_address, 1, MEMORY_SIZE, file_urand); }
+//    printf("After allocation\n");
+//    getchar();
 
-    if(file_urand != NULL)
+    if(file_urand == NULL)
     {
-        for(int i = 0; i < D; i++)
-            pthread_create(&threads[i], NULL, fill_memory, NULL);
-
-        for(int i = 0; i < D; i++)
-            pthread_join(threads[i], NULL);
+        fprintf(stderr, "FileNotFoundError");
+        return NULL;
     }
-    else fprintf(stderr, "FileNotFoundError");
 
-    fclose(file_urand);
+    void *void_address;
+    void_address = main_address;
+
+    for(int i = 0; i < D; i++)
+    {
+        pthread_create(&threads[i], NULL, fill_memory, (void *) void_address);
+        void_address += MEMORY_SLICE;
+    }
+
     //printf("After memory filling\n");
     //    getchar();
 
@@ -108,7 +127,7 @@ int main() {
     pthread_t fill_thread;
     pthread_t aggregate_threads[I];
 
-    pthread_create(&fill_thread, NULL, file_writer, (void *)start_address);
+    pthread_create(&fill_thread, NULL, file_writer, (void *) main_address);
 
     for (int i = 0; i < I; i++)
         pthread_create(&aggregate_threads[i], NULL, file_reader, NULL);
@@ -119,8 +138,11 @@ int main() {
     for (int i = 0; i < I; i++)
         pthread_join(aggregate_threads[i], NULL);
 
+    for(int i = 0; i < D; i++)
+        pthread_join(threads[i], NULL);
 
-    free(start_address);
+    fclose(file_urand);
+    free(main_address);
 
 //    printf("After deallocation\n");
     //getchar();
