@@ -1,0 +1,5 @@
+This is very useless program
+./useless
+first=1
+second=2
+misha&yulya=best
