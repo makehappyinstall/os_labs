@@ -28,7 +28,7 @@ void *fillMemoryFromThread(void *args) {
     int c = fread((void *) inArgs->startAddress, 1, inArgs->memorySize, inArgs->urandom);
     if(c <= 0){
         perror("Память не заполняется");
-        _exit(1);
+        exit(1);
     }
     return 0;
 }
@@ -37,7 +37,7 @@ void fillMemory(void *startAddress, size_t memorySize) {
     startAddress = mmap(startAddress, memorySize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
     if(startAddress == MAP_FAILED){
         perror("Не мапится");
-        _exit(1);
+        exit(1);
     }
     FILE *urandom = fopen("/dev/urandom", "r");
     pthread_t threads[D];
@@ -54,7 +54,7 @@ _Noreturn void *writeThread(void *fut) {
     int out = open("output", O_CREAT | O_WRONLY | O_TRUNC | O_DIRECT, 0700);
     if(out == -1){
         perror("Файл не открыть");
-        _exit(1);
+        exit(1);
     }
     while (1) {
         FILE *urandom = fopen("/dev/urandom", "r");
@@ -74,7 +74,7 @@ _Noreturn void *writeThread(void *fut) {
                 int c = write(out, str, inputSize);
                 if(c <= 0){
                     perror("Нельзя записать в файл");
-                    _exit(1);
+                    exit(1);
                 }
             }
             *((int *) fut) = 0;
