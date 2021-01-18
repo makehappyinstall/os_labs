@@ -88,23 +88,23 @@ void writeMemoryToFiles(unsigned char *memory_numbers) {
     for (int i = 0; i < FILES_COUNT; i++) {
         char file_name[14];
         sprintf(file_name, "os_file_%d", i);
-        FILE* out_file = fopen(file_name, "wb+");
+        int out_file = open(file_name, O_CREAT | O_WRONLY);
 
         if (i != FILES_COUNT - 1) {
             int file_part_count = files_size / IO_BLOCK_SIZE;
 
             for (int j = 0; j < file_part_count; j++) {
                 ptr += IO_BLOCK_SIZE;
-                fwrite(ptr, 1, IO_BLOCK_SIZE, out_file);
+                write(out_file, ptr, IO_BLOCK_SIZE);
             }
         } else {
             while (ptr <= (memory_numbers + MEMORY_ALLOCATION_SIZE)) {
                 ptr += IO_BLOCK_SIZE;
-                fwrite(ptr, 1, IO_BLOCK_SIZE, out_file);
+                write(out_file, ptr, IO_BLOCK_SIZE);
             }
         }
 
-        fclose(out_file);
+        close(out_file);
         printf("\nFile %d was written\n", i);
     }
     printf("-- After writing. Reading files and finding max number --\n");
