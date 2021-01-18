@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <sys/mman.h>
+#include <errno.h>
 #include "memory.h"
 
 //A=45;B=0xF113ABAB;C=mmap;D=59;E=11;F=nocache;G=97;H=random;I=66;J=max;K=sem
@@ -20,6 +21,8 @@
 #define G_BLOCK_SIZE 97
 
 #define FILES_NUMBER ((A_MEM_SIZE) / (E_FILE_SIZE))
+
+extern int errno;
 
 int * memRegion;
 
@@ -58,8 +61,8 @@ void writeRandomBlock(int fd, int fileSize, int blocksNum, char * buffer, char *
 
     memcpy(buffer, vMem + startByte, blockSize);
     if (pwrite(fd, buffer, blockSize, startByte) == -1) {
-      printf("Ошибка записи блока!\n");
-      return; 
+      // printf("Ошибка записи блока!\n");
+      return;
     };
 }
 
@@ -90,6 +93,19 @@ void writeFile(int start, int fd, int fileSize){
 
     for(int i = 0; i <= blocksNumber * 2; i++){
         writeRandomBlock(fd, fileSize, blocksNumber, buffer, vMemory);
+        switch (errno) {
+          case EAGAIN:
+          case EBADF:
+          case EDQUOT:
+          case EFAULT:
+          case EFBIG:
+          case EINVAL:
+          case EIO:
+          case ENOSPC:
+            fprintf(stderr, "Ошибка при попытке записи блока! %s\n", strerror(errno));
+            free(buffer);
+            return;
+        }
     }
     free(buffer);
 }
