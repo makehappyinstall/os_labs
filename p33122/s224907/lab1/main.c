@@ -67,9 +67,10 @@ _Noreturn void *writeThread(void *fut) {
                 isURandomEmpty = 1;
                 printf("Рандом пуст");
             } else {
-                size_t inputSize = floor(log10(abs(val)) + 2);
+                val = abs(val);
+                size_t inputSize = floor(log10(val) + 2);
                 char str[inputSize];
-                sprintf(str, "%d ", abs(val));
+                sprintf(str, "%d ", val);
                 int c = write(out, str, inputSize);
                 if(c <= 0){
                     perror("Нельзя записать в файл");
