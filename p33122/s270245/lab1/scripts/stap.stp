@@ -1,0 +1,38 @@
+global opens, closes, writes, reads
+
+probe begin 
+{
+	printf("%s\t%s\t%s\t%s\n", "open", "close", "write", "read")
+}
+
+probe syscall.open 
+{
+    if (pid() == target()) 
+	opens++
+}
+
+probe syscall.close
+{
+    if (pid() == target()) 
+	closes++
+}
+
+probe syscall.pread 
+{
+    if ( pid() == target()) 
+	reads++
+}
+
+probe syscall.write 
+{
+    if (pid() == target()) 
+	writes++
+}
+
+probe timer.ms(1000) {
+	printf("%d\t%d\t%d\t%d\n", opens, closes, writes, reads)
+	opens=0
+	closes=0
+	writes=0
+	reads=0
+}
