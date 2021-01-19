@@ -26,7 +26,7 @@ struct thread_data {
 void* generate_data(void* provided_data) {
     struct thread_data* data = (struct thread_data*) provided_data;
     if (fread(data->cursor, data->chunk_size, 1, urandom) != 1)
-        printf("Error in urandom occurred!");
+        printf("Error in urandom occurred!\n");
     return NULL;
 }
 
