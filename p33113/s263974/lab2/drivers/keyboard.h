@@ -1,0 +1,10 @@
+//
+// Created by sdfedorov on 14/01/2021.
+//
+
+#ifndef OPERATING_SYSTEMS_ITMO_2020_KEYBOARD_H
+#define OPERATING_SYSTEMS_ITMO_2020_KEYBOARD_H
+
+void kb_init(void);
+
+#endif //OPERATING_SYSTEMS_ITMO_2020_KEYBOARD_H
