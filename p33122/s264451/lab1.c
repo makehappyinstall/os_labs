@@ -195,6 +195,11 @@ int main (void)
     getchar();
 
     char *memory_region = malloc(memory_size);
+    if(!memory_region){
+        printf("Программа не может выделить память")
+        return 1;
+    }
+
     ptr = (unsigned char *)memory_region;
 
     printf("Снять после аллокации\n");
