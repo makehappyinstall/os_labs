@@ -6,8 +6,7 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <math.h>
-#include <fcntl.h>
+
 
 //variant: A=213;B=0xD9B51893;C=malloc;D=62;E=177;F=block;G=21;H=seq;I=40;J=max;K=cv
 #define A 213
@@ -23,7 +22,6 @@ const size_t FILE_SIZE = E * 1024 * 1024;
 const size_t MEMORY_SLICE = MEMORY_SIZE / D;
 FILE *file_urand;
 
-
 //2 step
 void *file_writer(void *start_address)
 {
@@ -31,7 +29,7 @@ void *file_writer(void *start_address)
     {
         printf("Thread in delay on write...\n");
         pthread_mutex_lock(&mutex);
-
+        //pthread_cond_wait(&cv, &mutex);
         printf("Thread lock the mutex on write\n");
         FILE *file_write = fopen("target_file", "w");
 
@@ -71,7 +69,6 @@ void *file_reader()
         }
 
         while (read(fd_read, &value, block) >= block) {
-            read(fd_read, &value, block);
 
             for (int i = 0; i < G; i++) {
                 if (mx < value[i]) mx = value[i];
@@ -81,17 +78,19 @@ void *file_reader()
         close(fd_read);
 
         printf("Result: %d\n", mx);
-
+        //pthread_cond_broadcast(&cv);
         pthread_mutex_unlock(&mutex);
         printf("Thread unlock the mutex on read\n");
     }
 }
 
-void* fill_memory(void * address)
+void* fill_memory(void *address)
 {
-    while (1) {
-        fread(address, MEMORY_SLICE, 1, file_urand);
-    }
+    pthread_mutex_lock(&mutex);
+
+    fread(address, MEMORY_SLICE, 1, file_urand);
+
+    pthread_mutex_unlock(&mutex);
 }
 
 int main() {
@@ -108,7 +107,7 @@ int main() {
     if(file_urand == NULL)
     {
         fprintf(stderr, "FileNotFoundError");
-        return NULL;
+        return 0;
     }
 
     void *void_address;
@@ -119,6 +118,9 @@ int main() {
         pthread_create(&threads[i], NULL, fill_memory, (void *) void_address);
         void_address += MEMORY_SLICE;
     }
+
+    for(int i = 0; i < D; i++)
+        pthread_join(threads[i], NULL);
 
     //printf("After memory filling\n");
     //    getchar();
@@ -132,14 +134,13 @@ int main() {
     for (int i = 0; i < I; i++)
         pthread_create(&aggregate_threads[i], NULL, file_reader, NULL);
 
-
     pthread_join(fill_thread, NULL);
+
+
 
     for (int i = 0; i < I; i++)
         pthread_join(aggregate_threads[i], NULL);
 
-    for(int i = 0; i < D; i++)
-        pthread_join(threads[i], NULL);
 
     fclose(file_urand);
     free(main_address);
