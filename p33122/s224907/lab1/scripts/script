@@ -1,0 +1,48 @@
+global countOfRead, countOfWrite
+global uticks, kticks, ticks
+
+probe begin{
+    printf("START\n")
+}
+
+probe vfs.read{
+    if(target() == pid()){
+        countOfRead++;
+    }
+}
+
+probe vfs.write{
+    if(target() == pid()){
+        countOfWrite++;
+    }
+}
+
+probe perf.sw.cpu_clock!, timer.profile{
+  if(target() == pid()){
+    if (user_mode())
+        uticks <<< 1
+    else
+        kticks <<< 1
+  }
+  ticks <<< 1
+}
+
+probe end{
+  printf("Количество вызовов чтения файла: %d\n", countOfRead)
+  printf("Количество вызовов записи в файл: %d\n", countOfWrite)
+  allticks = @count(ticks)
+  printf ("%7s %7s (из %d тактов)\n",
+          "пользовательские", "в режиме ядра", allticks)
+
+  uscaled = @count(uticks)*10000/allticks
+  kscaled = @count(kticks)*10000/allticks
+  printf ("%3d.%02d%% %3d.%02d%%\n",
+      uscaled/100, uscaled%100, kscaled/100, kscaled%100)
+  printf("\n")
+
+  delete uticks
+  delete kticks
+  delete ticks
+  delete countOfRead
+  delete countOfWrite
+}
