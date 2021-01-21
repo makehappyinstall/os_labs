@@ -1,0 +1,37 @@
+#! /usr/bin/env stap
+
+global possible_filename, filehandles, fileread
+
+probe syscall.open, syscall.openat {
+  possible_filename[tid()] = filename
+}
+
+probe syscall.open.return, syscall.openat.return {
+  filename = possible_filename[tid()]
+  delete  possible_filename[tid()]
+  if (retval != -1) {
+    filehandles[pid(), retval] = filename
+  }
+}
+
+global read_fds, sums
+
+probe syscall.read { read_fds[tid()] = fd }
+
+probe syscall.read.return {
+  p = pid()
+  fd = read_fds[tid()]
+  delete read_fds[tid()]
+  bytes = retval
+  if (bytes > 0)
+    fileread[p, fd] <<< bytes
+}
+
+probe syscall.close {
+  if ([pid(), fd] in filehandles) {
+    printf("%d,%s\n", @sum(fileread[pid(), fd]), filehandles[pid(), fd])
+   }
+  delete fileread[pid(), fd]
+  delete filehandles[pid(), fd]
+}
+
