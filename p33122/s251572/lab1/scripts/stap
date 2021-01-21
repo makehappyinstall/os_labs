@@ -1,0 +1,1 @@
+sudo stap -x <pid> script.stp
