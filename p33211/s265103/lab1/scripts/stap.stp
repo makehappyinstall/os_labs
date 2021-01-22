@@ -1,0 +1,34 @@
+global read, write, start, uticks, sticks, ticks
+
+probe perf.sw.cpu_clock!, timer.profile {
+    if (!user_mode())
+        sticks <<< 1
+    else
+        uticks <<< 1
+    ticks <<< 1
+}
+
+probe begin {
+	printf("%8s\t%8s\t%8s%8s%8s\n", "Time (s)", "Read (b)", "Write (b)", "Usr%", "Sys%")
+}
+
+probe syscall.write {
+    write += count
+}
+
+probe syscall.read {
+    read += count
+}
+
+probe timer.ms(1000) {
+    uscaled = @count(uticks)*100/@count(ticks)
+    sscaled = @count(sticks)*100/@count(ticks)
+    printf("%8d\t%8d\t%8d%8d%8d\n", start, read, write, uscaled, sscaled)
+    read=0
+    write=0
+    start+=1
+
+    delete uticks
+    delete sticks
+    delete ticks
+}
