@@ -16,91 +16,13 @@
 
 #define ADDRESS 0xDD6A8120
 #define SIZE 223 * 1024 * 1024
-#define WRITE_THREADS_NUMBER 3
+#define WRITE_THREADS_NUMBER 20
 #define FILE_SIZE 84 * 1024 * 1024
 #define NUMBER_OF_FILE (223 / 84 + 1)
 #define BLOCK_SIZE 106
-#define READ_THREADS_NUMBER 3
+#define READ_THREADS_NUMBER 88
 #define LOG_FILE "/mnt/c/Users/Admin/os-laba/log_memory.txt"
 #define FILE_TEMPLATE "/mnt/c/Users/Admin/os-laba/os-%zu"
-
-void create_open_files();
-
-void close_files();
-
-void *fill_segment_and_write_to_file(void *p);
-
-void *calculate_sum_of_file();
-
-void log_memory(char *);
-
-const size_t size_for_one_thread = SIZE / WRITE_THREADS_NUMBER;
-struct file_cond
-{
-    int fd;
-    bool isFree;
-    pthread_mutex_t mutex;
-    pthread_cond_t condition;
-};
-struct file_cond file_cond[NUMBER_OF_FILE];
-static volatile bool terminate = false;
-
-int main()
-{
-    remove(LOG_FILE);
-    create_open_files();
-    printf("Hi, PID: %d\nEnter anything to allocate memory\n", getpid());
-    log_memory("Before allocation");
-    getchar();
-
-    char *p = (char *)mmap(
-        (void *) ADDRESS,
-        SIZE,
-        PROT_READ | PROT_WRITE,
-        MAP_PRIVATE | MAP_ANONYMOUS,
-        -1,
-        0
-    );
-    puts("Memory successfully allocated");
-    log_memory("After allocation");
-    getchar();
-
-    char *p_init = p;
-    pthread_t write_threads[WRITE_THREADS_NUMBER];
-    for (size_t i = 0; i < WRITE_THREADS_NUMBER; i++)
-    {
-        pthread_create(&write_threads[i], NULL, fill_segment_and_write_to_file, p);
-        p += size_for_one_thread;
-        
-    }
-    getchar();
-    log_memory("After filling area");
-
-    pthread_t read_threads[READ_THREADS_NUMBER];
-    for (size_t i = 0; i < READ_THREADS_NUMBER; i++)
-    {
-        pthread_create(&read_threads[i], NULL, calculate_sum_of_file, NULL);
-        printf("Created %zu read thread\n", i + 1);
-        
-    }
-    getchar();
-
-    terminate = true;
-    for (size_t i = 0; i < WRITE_THREADS_NUMBER; i++)
-    {
-        pthread_join(write_threads[i], NULL);
-    }
-    for (size_t i = 0; i < READ_THREADS_NUMBER; i++)
-    {
-        pthread_join(read_threads[i], NULL);
-    }
-    munmap(p_init, SIZE);
-    puts("Memory deallocated");
-    log_memory("After deallocation");
-    close_files();
-    getchar();
-    return 0;
-}
 
 void create_open_files()
 {
@@ -163,10 +85,7 @@ void *calculate_sum_of_file()
     {
         size_t nf = rand() % NUMBER_OF_FILE;
         pthread_mutex_lock(&file_cond[nf].mutex);
-        /*while (!file_cond[nf].isFree)
-        {
-            pthread_cond_wait(&file_cond[nf].condition, &file_cond[nf].mutex);
-        }*/
+        
         if (terminate)
         {
             pthread_cond_signal(&file_cond[nf].condition);
@@ -221,4 +140,72 @@ void log_memory(char *status)
     write_to_log("\nmaps:\n");
     system(cmd);
     write_to_log("\n");
+}
+
+const size_t size_for_one_thread = SIZE / WRITE_THREADS_NUMBER;
+struct file_cond
+{
+    int fd;
+    bool isFree;
+    pthread_mutex_t mutex;
+    pthread_cond_t condition;
+};
+struct file_cond file_cond[NUMBER_OF_FILE];
+static volatile bool terminate = false;
+
+int main()
+{
+    remove(LOG_FILE);
+    create_open_files();
+    printf("Hi, PID: %d\nEnter anything to allocate memory\n", getpid());
+    log_memory("Before allocation");
+    getchar();
+
+    char *p = (char *)mmap(
+        ADDRESS,
+        SIZE,
+        PROT_READ | PROT_WRITE,
+        MAP_PRIVATE | MAP_ANONYMOUS,
+        -1,
+        0
+    );
+    puts("Memory successfully allocated");
+    log_memory("After allocation");
+    getchar();
+
+    char *p_init = p;
+    pthread_t write_threads[WRITE_THREADS_NUMBER];
+    for (size_t i = 0; i < WRITE_THREADS_NUMBER; i++)
+    {
+        pthread_create(&write_threads[i], NULL, fill_segment_and_write_to_file, p);
+        p += size_for_one_thread;
+        
+    }
+    getchar();
+    log_memory("After filling area");
+
+    pthread_t read_threads[READ_THREADS_NUMBER];
+    for (size_t i = 0; i < READ_THREADS_NUMBER; i++)
+    {
+        pthread_create(&read_threads[i], NULL, calculate_sum_of_file, NULL);
+        printf("Created %zu read thread\n", i + 1);
+        
+    }
+    getchar();
+
+    terminate = true;
+    for (size_t i = 0; i < WRITE_THREADS_NUMBER; i++)
+    {
+        pthread_join(write_threads[i], NULL);
+    }
+    for (size_t i = 0; i < READ_THREADS_NUMBER; i++)
+    {
+        pthread_join(read_threads[i], NULL);
+    }
+    munmap(p_init, SIZE);
+    puts("Memory deallocated");
+    log_memory("After deallocation");
+    close_files();
+    getchar();
+    return 0;
 }
