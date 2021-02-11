@@ -1,0 +1,4 @@
+htop
+pmap 14006 -X
+
+strace ./main
