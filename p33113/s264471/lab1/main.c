@@ -9,17 +9,17 @@
 
 
 const int A = 198 * 1024 * 1024;
-const void *B = (void *) 0x1BFC91AB;
-const int D = 133;
 const int E = 149 * 1024 * 1024;
 const int G = 97;
+const void *B = (void *) 0x1BFC91AB;
+const int D = 133;
 const int I = 50;
 
-int nb_files;
+
 int fl_dscrprts[2];
 char *mem_area;
-int sum = 0;
 int sm = 0;
+int nb_files;
 
 
 typedef struct all_thr_t {
@@ -59,39 +59,31 @@ void *all_thread_func(void *thr) {
 void *sum_thread_func(void *thr) {
     sum_thr *thrs = (sum_thr *) thr;
     int sum = 0;
-    //printf("%d", nb_files);
     for (int i = 0; i < nb_files; i++) {
+        int file_size;
         if (i == nb_files - 1) {
-            int rd_block_size;
-            int file_size = A - E * (nb_files - 1);
-
-            rd_block_size = (thrs->id != I - 1) ? file_size / I : file_size - ((I - 1) * (file_size / I));
-            char rd_data[rd_block_size];
-            pread(fl_dscrprts[i], &rd_data, rd_block_size, (file_size / I) * thrs->id);
-            for (int j = 0; j < sizeof(rd_data); j++) {
-                sum += rd_data[j];
-            }
-            if (thrs->id == I - 1) {
-                flock(fl_dscrprts[i], LOCK_UN);
-                close(fl_dscrprts[i]);
-            }
+            file_size = A - E * (nb_files - 1);
         } else {
-            int data_size = (thrs->id != I - 1) ? E / I : E - ((I - 1) * (E / I));
-
-            //printf("before rd_data");
-            char rd_data[data_size];//[data_size];
-            //printf("before pread done");
-            pread(fl_dscrprts[i], &rd_data, data_size, (E / I) * thrs->id);
-            //printf("pread done");
-            for (int j = 0; j < sizeof(rd_data); j++) {
-                sum += rd_data[j];
-            }
-            if (thrs->id == I - 1) {
-                flock(fl_dscrprts[i], LOCK_UN);
-                close(fl_dscrprts[i]);
-            }
+            file_size=E;
         }
+
+        int rd_block_size = (thrs->id != I - 1) ? file_size / I : file_size - ((I - 1) * (file_size / I));
+        char *rd_data = (char *) malloc(rd_block_size);
+
+        pread(fl_dscrprts[i], rd_data, rd_block_size, (file_size / I) * thrs->id);
+        for (int j = 0; j < sizeof(rd_data); j++) {
+            sum = sum+ (int) rd_data[j];
+        }
+
+
+        if (thrs->id == I - 1) {
+            flock(fl_dscrprts[i], LOCK_UN);
+            close(fl_dscrprts[i]);
+        }
+
     }
+
+
     thrs->sum = sum;
     pthread_exit(NULL);
 }
@@ -142,7 +134,7 @@ void *save_to_file() {
 
 
 int main() {
-
+    nb_files=(A % E == 0) ? A / E : A / E + 1;
     char ch;
     while ((ch = getchar()) != '\n' && ch != EOF);
 
@@ -151,7 +143,7 @@ int main() {
                     PROT_READ | PROT_WRITE,
                     MAP_PRIVATE | MAP_ANONYMOUS,
                     0, 0);
-    if (mem_area == -1) printf("Памятьне выделена!\n");
+    if (mem_area == (void*) -1) printf("Памятьне выделена!\n");
     else if (mem_area != B) printf("Память выделена по другому адресу\n");
 
 
@@ -163,7 +155,6 @@ int main() {
 
     for (int i = 0; i < D; i++) {
         all_thrs[i].id = i;
-
         pthread_create(&thrs[i], NULL, all_thread_func, (void *) &all_thrs[i]);
     }
     for (int i = 0; i < D; i++)
@@ -177,7 +168,7 @@ int main() {
     munmap(mem_area, A);
 
     while ((ch = getchar()) != '\n' && ch != EOF);
-    printf("Подсчет суммы...");
+    printf("Подсчет суммы...\n");
     pthread_t thrs_sm[I];
     sum_thr sum_thrs[I];
     for (int i = 1; i < nb_files + 1; i++) {
@@ -190,7 +181,7 @@ int main() {
 
     for (int i = 0; i < I; i++) {
         sum_thrs[i].id = i;
-        sum_thread_func((void *) &sum_thrs[i]);
+        pthread_create(&thrs_sm[i], NULL, sum_thread_func, (void *) &sum_thrs[i]);
     }
 
     for (int i = 0; i < I; i++) {
@@ -198,8 +189,9 @@ int main() {
     }
     while ((ch = getchar()) != '\n' && ch != EOF);
     for (int i = 0; i < I; i++) {
-        sm = sum_thrs[i].sum;
+        sm = sm+sum_thrs[i].sum;
     }
+    printf("Cумма: %d",sm);
 
     return 0;
 }
